@@ -7,7 +7,6 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-
 import "common.css!";
 import "generic_light.css!";
 
@@ -2823,6 +2822,425 @@ if(device.deviceType === "desktop") {
         assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
         assert.equal($("td.dx-focused").length, 1, "one cell is focused");
         assert.ok(!this.keyboardNavigationController._isEditingCompleted, "editing is completed");
+    });
+
+    QUnit.testInActiveWindow("Enter key if excelNavigation and cell edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        // act
+        this.options.editing = {
+            mode: "cell",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 0, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
+
+        // act
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.notOk(this.keyboardNavigationController._isEditing);
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+        assert.ok(!this.keyboardNavigationController._isEditingCompleted, "editing is completed");
+    });
+
+    QUnit.testInActiveWindow("Enter+Shift key if excelNavigation and cell edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        // act
+        this.options.editing = {
+            mode: "cell",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+
+        // act
+        this.triggerKeyDown("enter", undefined, true);
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.notOk(this.keyboardNavigationController._isEditing);
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+        assert.ok(!this.keyboardNavigationController._isEditingCompleted, "editing is completed");
+    });
+
+    QUnit.testInActiveWindow("Enter key if excelNavigation and batch edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        // act
+        this.options.editing = {
+            mode: "batch",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 0, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
+
+        // act
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.notOk(this.keyboardNavigationController._isEditing);
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+        assert.ok(!this.keyboardNavigationController._isEditingCompleted, "editing is completed");
+    });
+
+    QUnit.testInActiveWindow("Enter+Shift key if excelNavigation and batch edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        // act
+        this.options.editing = {
+            mode: "batch",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+
+        // act
+        this.triggerKeyDown("enter", undefined, true);
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.notOk(this.keyboardNavigationController._isEditing);
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+        assert.ok(!this.keyboardNavigationController._isEditingCompleted, "editing is completed");
+    });
+
+    QUnit.testInActiveWindow("Enter key for not changed editing cell if excelNavigation and cell edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        // act
+        this.options.editing = {
+            mode: "cell",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        this.focusFirstCell();
+        this.editCell(0, 0);
+
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+    });
+
+    QUnit.testInActiveWindow("Enter key for not changed editing cell if excelNavigation and batch edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        // act
+        this.options.editing = {
+            mode: "batch",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        this.focusFirstCell();
+        this.editCell(0, 0);
+
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+    });
+
+    QUnit.testInActiveWindow("Enter key for changed editing cell if excelNavigation and cell edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container"),
+            $input;
+
+        this.$element = function() {
+            return $container;
+        };
+
+        this.options.editing = {
+            mode: "cell",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.editCell(0, 0);
+        $input = $(".dx-row input").eq(0);
+        $input.val('Test');
+        keyboardMock($input).keyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+    });
+
+    QUnit.testInActiveWindow("Enter key for changed editing cell if excelNavigation and batch edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container"),
+            $input;
+
+        this.$element = function() {
+            return $container;
+        };
+
+        this.options.editing = {
+            mode: "batch",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.editCell(0, 0);
+        $input = $(".dx-row input").eq(0);
+        $input.val('Test');
+        keyboardMock($input).keyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+    });
+
+    QUnit.testInActiveWindow("F2 key if excelNavigation and cell edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        this.options.editing = {
+            mode: "cell",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+
+        // act
+        this.triggerKeyDown("F2");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+
+        // act
+        this.triggerKeyDown("F2");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+    });
+
+    QUnit.testInActiveWindow("F2 key if excelNavigation and batch edit mode", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        this.options.editing = {
+            mode: "batch",
+            allowUpdating: true
+        };
+        this.options.excelNavigation = true;
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+
+        // act
+        this.triggerKeyDown("F2");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+
+        // act
+        this.triggerKeyDown("F2");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, 1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
+        assert.equal($("td.dx-focused").length, 1, "one cell is focused");
+    });
+
+    QUnit.testInActiveWindow("F2 key if no excelNavigation", function(assert) {
+        // arrange
+        setupModules(this);
+
+        var $container = $("#container");
+
+        this.$element = function() {
+            return $container;
+        };
+
+        this.options.editing = {
+            mode: "cell",
+            allowUpdating: true
+        };
+        this.gridView.render($container);
+
+        // act
+        this.focusFirstCell();
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
+
+        this.triggerKeyDown("F2");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.editingController._editRowIndex, -1, "row is editing");
+        assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
+        assert.equal($("td[tabIndex]").attr("tabIndex"), 0, "tabIndex of cell");
     });
 
     // T364106

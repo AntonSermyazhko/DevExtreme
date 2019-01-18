@@ -452,7 +452,6 @@ var KeyboardNavigationController = core.ViewController.inherit({
     _enterKeyHandler: function(eventArgs, isEditing) {
         var $cell = this._getFocusedCell(),
             rowIndex = this.getVisibleRowIndex(),
-            isExcelNavigation = this._isExcelNavigation(),
             $row = this._focusedView && this._focusedView.getRow(rowIndex);
 
         if((this.option("grouping.allowCollapsing") && isGroupRow($row)) ||
@@ -468,13 +467,13 @@ var KeyboardNavigationController = core.ViewController.inherit({
         } else {
             if(isEditing) {
                 this._handleEnterKeyEditingCell(eventArgs.originalEvent);
+                var direction = eventArgs.shift ? "upArrow" : "downArrow";
+                if(this._isExcelNavigation()) {
+                    this._navigateNextCell(eventArgs.originalEvent, direction);
+                }
             } else {
-                !isExcelNavigation && this._startEditing();
+                this._startEditing();
             }
-        }
-
-        if(isExcelNavigation) {
-            this._handleEnterKeyExcelNavigation(eventArgs, isEditing);
         }
     },
 
