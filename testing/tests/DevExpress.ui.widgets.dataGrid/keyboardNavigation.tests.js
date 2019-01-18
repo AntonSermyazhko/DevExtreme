@@ -50,7 +50,8 @@ var KEYS = {
     "downArrow": "40",
     "space": "32",
     "F": "70",
-    "A": "65"
+    "A": "65",
+    "F2": 113
 };
 
 function triggerKeyDown(key, ctrl, shift, target, result) {

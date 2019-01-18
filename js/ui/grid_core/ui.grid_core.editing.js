@@ -1549,13 +1549,14 @@ var EditingController = modules.ViewController.inherit((function() {
             var that = this,
                 editMode = getEditMode(that),
                 oldEditRowIndex = that._getVisibleEditRowIndex(),
+                isExcelNavigation = that.option("excelNavigation"),
                 dataController = that._dataController;
 
             if(!isRowEditMode(that)) {
                 setTimeout(function() {
                     if(editMode === EDIT_MODE_CELL && that.hasChanges()) {
                         that.saveEditData().done(function() {
-                            if(!that.hasChanges()) {
+                            if(!isExcelNavigation && !that.hasChanges()) {
                                 that.closeEditCell();
                             }
                         });
