@@ -26,6 +26,7 @@ var ROWS_VIEW_CLASS = "rowsview",
     CELL_FOCUS_DISABLED_CLASS = "dx-cell-focus-disabled",
 
     INTERACTIVE_ELEMENTS_SELECTOR = "input:not([type='hidden']), textarea, a, [tabindex]",
+    EDITOR_INPUT_SELECTOR = ".dx-texteditor-container input",
 
     VIEWS = ["rowsView"],
 
@@ -472,7 +473,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
                     this._navigateNextCell(eventArgs.originalEvent, direction);
                 }
             } else {
-                this._startEditing();
+                this._startEditing(eventArgs);
             }
         }
     },
@@ -513,8 +514,9 @@ var KeyboardNavigationController = core.ViewController.inherit({
         }
     },
 
-    _startEditing: function() {
-        var focusedCellPosition = this._focusedCellPosition,
+    _startEditing: function(eventArgs) {
+        var that = this,
+            focusedCellPosition = this._focusedCellPosition,
             editingController = this._editingController,
             column = this._columnsController.getVisibleColumns()[focusedCellPosition.columnIndex],
             rowIndex = this.getVisibleRowIndex(),
@@ -524,7 +526,15 @@ var KeyboardNavigationController = core.ViewController.inherit({
             if(this._isRowEditMode()) {
                 editingController.editRow(rowIndex);
             } else if(focusedCellPosition) {
-                editingController.editCell(rowIndex, focusedCellPosition.columnIndex);
+                var editCell = editingController.editCell(rowIndex, focusedCellPosition.columnIndex);
+
+                if(that._excelNavigationBeginEditingKey && (editCell === true || editCell && editCell.done(function() {
+                    var input = that._getFocusedCell().find(EDITOR_INPUT_SELECTOR);
+                    if(input) {
+                        input.val(that._excelNavigationBeginEditingKey);
+                        eventsEngine.trigger($(input), "input");
+                    }
+                })));
             }
         }
     },
@@ -533,17 +543,42 @@ var KeyboardNavigationController = core.ViewController.inherit({
         var rowIndex = this.getVisibleRowIndex(),
             $event = eventArgs.originalEvent,
             $row = this._focusedView && this._focusedView.getRow(rowIndex),
-            directionCode;
+            directionCode = this._getDirectionCodeByKey(eventArgs.key),
+            isEditingNavigationMode = this._isEditingNavigationMode(),
+            allowNavigate = (!isEditing || isEditingNavigationMode) && isDataRow($row);
 
-        if(!isEditing && isDataRow($row)) {
+        if(allowNavigate) {
             this.setCellFocusType();
-            directionCode = this._getDirectionCodeByKey(eventArgs.key);
 
+            isEditingNavigationMode && this._editingController.closeEditCell();
             this._arrowKeysHandlerFocusCell($event, this._getNextCell(directionCode));
 
-            if($event) {
-                $event.preventDefault();
+            $event && $event.preventDefault();
+
+        }
+    },
+
+    _upDownKeysHandler: function(eventArgs, isEditing) {
+        var rowIndex = this.getVisibleRowIndex(),
+            $row = this._focusedView && this._focusedView.getRow(rowIndex),
+            $event = eventArgs.originalEvent,
+            rowHeight,
+            isUpArrow = eventArgs.key === "upArrow",
+            dataSource = this._dataController.dataSource(),
+            isEditingNavigationMode = this._isEditingNavigationMode(),
+            allowNavigate = (!isEditing || isEditingNavigationMode) && $row && !isDetailRow($row);
+
+        if(allowNavigate) {
+            isEditingNavigationMode && this._editingController.closeEditCell();
+            if(!this._navigateNextCell($event, eventArgs.key)) {
+                if(this._isVirtualScrolling() && isUpArrow && dataSource && !dataSource.isLoading()) {
+                    rowHeight = $row.outerHeight();
+                    rowIndex = this._focusedCellPosition.rowIndex - 1;
+                    this._scrollBy(-rowHeight, rowIndex, $event);
+                }
             }
+
+            $event && $event.preventDefault();
         }
     },
 
@@ -557,28 +592,6 @@ var KeyboardNavigationController = core.ViewController.inherit({
         }
 
         return directionCode;
-    },
-
-    _upDownKeysHandler: function(eventArgs, isEditing) {
-        var rowIndex = this.getVisibleRowIndex(),
-            $row = this._focusedView && this._focusedView.getRow(rowIndex),
-            $event = eventArgs.originalEvent,
-            rowHeight,
-            isUpArrow = eventArgs.key === "upArrow",
-            dataSource = this._dataController.dataSource();
-
-        if(!isEditing && $row && !isDetailRow($row)) {
-            if(!this._navigateNextCell($event, eventArgs.key)) {
-                if(this._isVirtualScrolling() && isUpArrow && dataSource && !dataSource.isLoading()) {
-                    rowHeight = $row.outerHeight();
-                    rowIndex = this._focusedCellPosition.rowIndex - 1;
-                    this._scrollBy(-rowHeight, rowIndex, $event);
-                }
-            }
-            if($event) {
-                $event.preventDefault();
-            }
-        }
     },
 
     _navigateNextCell: function($event, keyCode) {
@@ -715,6 +728,8 @@ var KeyboardNavigationController = core.ViewController.inherit({
                 });
                 eventArgs.originalEvent.preventDefault();
             }
+        } else {
+            this._excelNavigationBeginEdit(eventArgs.originalEvent);
         }
     },
 
@@ -994,7 +1009,11 @@ var KeyboardNavigationController = core.ViewController.inherit({
                     this._spaceKeyHandler(e, isEditing);
                     break;
                 case "A":
-                    this._ctrlAKeyHandler(e, isEditing);
+                    if(e.ctrl) {
+                        this._ctrlAKeyHandler(e, isEditing);
+                    } else {
+                        this._excelNavigationBeginEdit(e.originalEvent);
+                    }
                     break;
                 case "tab":
                     this._tabKeyHandler(e, isEditing);
@@ -1006,15 +1025,21 @@ var KeyboardNavigationController = core.ViewController.inherit({
                     this._escapeKeyHandler(e, isEditing);
                     break;
                 case "F":
-                    this._ctrlFKeyHandler(e);
+                    if(e.ctrl) {
+                        this._ctrlFKeyHandler(e);
+                    } else {
+                        this._excelNavigationBeginEdit(e.originalEvent);
+                    }
                     break;
                 case 113:
                     this._f2KeyHandler();
                     break;
                 default:
-                    this._isNeedFocus = false;
-                    this._isNeedScroll = false;
-                    needStopPropagation = false;
+                    if(!this._excelNavigationBeginEdit(e.originalEvent)) {
+                        this._isNeedFocus = false;
+                        this._isNeedScroll = false;
+                        needStopPropagation = false;
+                    }
                     break;
             }
 
@@ -1022,6 +1047,25 @@ var KeyboardNavigationController = core.ViewController.inherit({
                 e.originalEvent.stopPropagation();
             }
         }
+    },
+
+    _isEditingNavigationMode: function() {
+        return this._isExcelNavigation() && isDefined(this._excelNavigationBeginEditingKey);
+    },
+
+    _excelNavigationBeginEdit: function(originalEvent) {
+        if(!this._isExcelNavigation() || originalEvent.altKey || originalEvent.ctrlKey || this._editingController.isEditing()) {
+            return false;
+        }
+
+        var key = originalEvent.key || String.fromCharCode(originalEvent.keyCode || originalEvent.which);
+
+        if(key && key.length === 1) {
+            this._excelNavigationBeginEditingKey = key;
+            this._startEditing();
+        }
+
+        return true;
     },
 
     _isLastRow: function(rowIndex) {
@@ -1201,6 +1245,8 @@ var KeyboardNavigationController = core.ViewController.inherit({
                     }
                 }
             });
+
+            that._excelNavigationBeginEditingKey = null;
 
             that._focusedCellPosition = {};
 
@@ -1701,6 +1747,10 @@ module.exports = {
                 init: function() {
                     this.callBase();
                     this._keyboardNavigationController = this.getController("keyboardNavigation");
+                },
+                closeEditCell: function() {
+                    this.callBase.apply(this, arguments);
+                    this.getController("keyboardNavigation")._excelNavigationBeginEditingKey = null;
                 }
             },
             data: {
