@@ -218,9 +218,11 @@ var KeyboardNavigationController = core.ViewController.inherit({
         each(that._focusedViews, function(index, view) {
             if(view) {
                 view.renderCompleted.add(function(e) {
-                    var $element = view.element();
+                    var $element = view.element(),
+                        keyboardActionSelector = `.${ROW_CLASS} > td, .${ROW_CLASS}`;
+
                     eventsEngine.off($element, eventUtils.addNamespace(pointerEvents.down, "dxDataGridKeyboardNavigation"), clickAction);
-                    eventsEngine.on($element, eventUtils.addNamespace(pointerEvents.down, "dxDataGridKeyboardNavigation"), "." + ROW_CLASS + " > td, ." + ROW_CLASS, {
+                    eventsEngine.on($element, eventUtils.addNamespace(pointerEvents.down, "dxDataGridKeyboardNavigation"), keyboardActionSelector, {
                         viewIndex: index,
                         view: view
                     }, clickAction);
@@ -528,12 +530,10 @@ var KeyboardNavigationController = core.ViewController.inherit({
             } else if(focusedCellPosition) {
                 var editCell = editingController.editCell(rowIndex, focusedCellPosition.columnIndex);
 
-                if(that._excelNavigationBeginEditingKey && (editCell === true || editCell && editCell.done(function() {
-                    var input = that._getFocusedCell().find(EDITOR_INPUT_SELECTOR);
-                    if(input) {
-                        input.val(that._excelNavigationBeginEditingKey);
-                        eventsEngine.trigger($(input), "input");
-                    }
+                if(that._isEditingNavigationMode() && (editCell === true || editCell && editCell.done(function() {
+                    var $input = that._getFocusedCell().find(EDITOR_INPUT_SELECTOR).eq(0);
+                    $input.val(that._excelNavigationBeginEditingKey);
+                    eventsEngine.trigger($input, "input");
                 })));
             }
         }
