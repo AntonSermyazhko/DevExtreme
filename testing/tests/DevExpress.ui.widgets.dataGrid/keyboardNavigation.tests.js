@@ -1060,13 +1060,8 @@ QUnit.module("Keyboard keys", {
 
         that.triggerKeyDown = triggerKeyDown;
 
-        that.focusCell = function(columnIndex, rowIndex) {
-            var $row = $(this.rowsView.element().find(".dx-row")[rowIndex]);
-            $($row.find("td")[columnIndex]).trigger(CLICK_EVENT);
-        };
-
         that.focusFirstCell = function() {
-            that.focusCell(0, 0);
+            focusCell(this.rowsView.element(), 0, 0);
         };
 
         that.clock = sinon.useFakeTimers();
@@ -1224,7 +1219,7 @@ QUnit.testInActiveWindow("Up arrow if scrolling mode is virtual", function(asser
         return 100000;
     };
 
-    this.focusCell(1, 0);
+    focusCell(this.rowsView.element(), 1, 0);
 
     this.triggerKeyDown("upArrow");
 
@@ -1255,7 +1250,7 @@ QUnit.testInActiveWindow("Down arrow to group footer", function(assert) {
     // act
     this.gridView.render($("#container"));
 
-    this.focusCell(1, 5);
+    focusCell(this.rowsView.element(), 1, 5);
 
     this.triggerKeyDown("downArrow");
     this.triggerKeyDown("downArrow");
@@ -1274,7 +1269,7 @@ QUnit.testInActiveWindow("Up arrow to group footer", function(assert) {
     // act
     this.gridView.render($("#container"));
 
-    this.focusCell(1, 8);
+    focusCell(this.rowsView.element(), 1, 8);
     this.triggerKeyDown("upArrow");
 
     // assert
@@ -1291,7 +1286,7 @@ QUnit.testInActiveWindow("Ctrl+RightArrow do not expand master detail row if mas
     // act
     this.gridView.render($("#container"));
 
-    this.focusCell(1, 1);
+    focusCell(this.rowsView.element(), 1, 1);
 
     this.dataController.expandRow = sinon.spy();
     this.triggerKeyDown("rightArrow", true);
@@ -1357,7 +1352,7 @@ QUnit.testInActiveWindow("Update focus when row is editing with form_T306378", f
 
     // act
     this.gridView.render($("#container"));
-    this.focusCell(0, 0);
+    focusCell(this.rowsView.element(), 0, 0);
     this.editingController.editRow(0);
     this.editingController.cancelEditData();
     this.editingController.editRow(0);
@@ -2050,7 +2045,7 @@ QUnit.testInActiveWindow("Editor has focus when edit form", function(assert) {
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 0);
+    focusCell(this.rowsView.element(), 0, 0);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
@@ -2102,7 +2097,7 @@ QUnit.testInActiveWindow("Focus previous cell after shift+tab on first form edit
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 1);
+    focusCell(this.rowsView.element(), 0, 1);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
@@ -2159,7 +2154,7 @@ QUnit.testInActiveWindow("Focus next cell after tab on last form button", functi
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 1);
+    focusCell(this.rowsView.element(), 0, 1);
     this.triggerKeyDown("enter");
     this.clock.tick();
 
@@ -2220,7 +2215,7 @@ QUnit.testInActiveWindow("Navigation using tab inside edit form in the first row
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 1);
+    focusCell(this.rowsView.element(), 0, 1);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
@@ -2347,7 +2342,7 @@ QUnit.testInActiveWindow("Navigation using shift+tab inside edit form in the fir
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 0);
+    focusCell(this.rowsView.element(), 0, 0);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
@@ -2398,13 +2393,13 @@ QUnit.testInActiveWindow("Navigate using shift + tab to first editor from row af
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 0);
+    focusCell(this.rowsView.element(), 0, 0);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
 
 
-    this.focusCell(0, 1);
+    focusCell(this.rowsView.element(), 0, 1);
     this.triggerKeyDown("enter");
 
     this.triggerKeyDown("tab", false, true, testElement.find(".dx-row").get(1));
@@ -2457,7 +2452,7 @@ QUnit.testInActiveWindow("Close edit form after enter key", function(assert) {
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 0);
+    focusCell(this.rowsView.element(), 0, 0);
     this.triggerKeyDown("enter");
     this.clock.tick();
 
@@ -2518,7 +2513,7 @@ QUnit.testInActiveWindow("Close edit form after esc key", function(assert) {
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 0);
+    focusCell(this.rowsView.element(), 0, 0);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
@@ -3402,7 +3397,7 @@ if(device.deviceType === "desktop") {
         this.gridView.render($container);
 
         // act
-        this.focusCell(1, 1);
+        focusCell(this.rowsView.element(), 1, 1);
 
         // assert
         assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
@@ -3455,7 +3450,7 @@ if(device.deviceType === "desktop") {
         this.gridView.render($container);
 
         // act
-        this.focusCell(1, 1);
+        focusCell(this.rowsView.element(), 1, 1);
 
         // assert
         assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
@@ -3508,7 +3503,7 @@ if(device.deviceType === "desktop") {
         this.gridView.render($container);
 
         // act
-        this.focusCell(1, 1);
+        focusCell(this.rowsView.element(), 1, 1);
 
         // assert
         assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
@@ -3561,7 +3556,7 @@ if(device.deviceType === "desktop") {
         this.gridView.render($container);
 
         // act
-        this.focusCell(1, 1);
+        focusCell(this.rowsView.element(), 1, 1);
 
         // assert
         assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
@@ -4008,7 +4003,7 @@ QUnit.testInActiveWindow("Do not prevent default on 'tab' if the current cell is
 
     var $lastCell = this.rowsView.element().find(".dx-row").filter(":visible").last().find("td").last();
 
-    this.focusCell($lastCell);
+    focusCell($lastCell);
     this.keyboardNavigationController._focusedCellPosition = { rowIndex: 1, columnIndex: 1 };
 
     // act
@@ -4221,7 +4216,7 @@ QUnit.testInActiveWindow("Focus next cell in not editable the row after tab key 
     this.triggerKeyDown("tab", false, false, $("#container").find('input'));
     this.clock.tick();
 
-    this.focusCell(0, 1);
+    focusCell(this.rowsView.element(), 0, 1);
 
     // act
     this.triggerKeyDown("tab", false, false, $("#container").find('.dx-datagrid-rowsview').find("table > tbody").find("td").eq(1).find("td").eq(1));
@@ -5303,7 +5298,7 @@ QUnit.testInActiveWindow("Add custom tabIndex to cell inside edit form when tab 
     this.gridView.render(testElement);
 
     // act
-    this.focusCell(0, 1);
+    focusCell(this.rowsView.element(), 0, 1);
     this.triggerKeyDown("enter");
 
     this.clock.tick();
@@ -5391,7 +5386,7 @@ QUnit.testInActiveWindow("Edit next cell after tab key when there is masterDetai
     // assert
     assert.ok($testElement.find(".dx-datagrid-rowsview").find("tbody > tr > td").first().hasClass("dx-datagrid-expand"), "has an expand cell");
 
-    this.focusCell(1, 0);
+    focusCell(this.rowsView.element(), 1, 0);
     this.triggerKeyDown("enter");
 
     // assert
@@ -5506,7 +5501,7 @@ QUnit.testInActiveWindow("Up arrow key should work after moving to an unloaded p
     that.rowsView.height(400);
     that.rowsView.resize();
 
-    that.focusCell(0, 1); // focus the first cell of the first data row
+    focusCell(this.rowsView.element(), 0, 1); // focus the first cell of the first data row
     that.clock.tick();
 
     // act
