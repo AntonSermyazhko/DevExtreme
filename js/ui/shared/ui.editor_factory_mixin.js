@@ -211,8 +211,7 @@ var EditorFactoryMixin = (function() {
     };
 
     var createEditorCore = function(that, options) {
-        var $editorElement = $(options.editorElement),
-            editorInstance;
+        var $editorElement = $(options.editorElement);
 
         if(options.editorName && options.editorOptions && $editorElement[options.editorName]) {
             if(options.editorName === "dxCheckBox") {
@@ -228,14 +227,7 @@ var EditorFactoryMixin = (function() {
             that._createComponent($editorElement, options.editorName, options.editorOptions);
 
             if(options.editorName === "dxTextBox") {
-                $editorElement.dxTextBox("instance").registerKeyHandler("enter", noop);
-            }
-            if(options.preventArrowKeys) {
-                editorInstance = $editorElement[options.editorName]("instance");
-                editorInstance.registerKeyHandler("upArrow", noop);
-                editorInstance.registerKeyHandler("rightArrow", noop);
-                editorInstance.registerKeyHandler("downArrow", noop);
-                editorInstance.registerKeyHandler("leftArrow", noop);
+                $editorElement[options.editorName]("instance").registerKeyHandler("enter", noop);
             }
         }
     };

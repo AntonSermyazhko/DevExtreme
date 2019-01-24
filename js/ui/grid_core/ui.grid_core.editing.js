@@ -123,9 +123,7 @@ var isRowEditMode = function(that) {
 var EditingController = modules.ViewController.inherit((function() {
     var getDefaultEditorTemplate = function(that) {
         return function(container, options) {
-            var $editor = $("<div>").appendTo(container),
-                keyboardController = that.getController("keyboardNavigation"),
-                isEditingNavigationMode = keyboardController && keyboardController._isEditingNavigationMode();
+            var $editor = $("<div>").appendTo(container);
 
             that.getController("editorFactory").createEditor($editor, extend({}, options.column, {
                 value: options.value,
@@ -136,7 +134,6 @@ var EditingController = modules.ViewController.inherit((function() {
                 readOnly: !options.setValue,
                 isOnForm: options.isOnForm,
                 id: options.id,
-                preventArrowKeys: isEditingNavigationMode
             }));
         };
     };

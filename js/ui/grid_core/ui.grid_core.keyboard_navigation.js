@@ -9,6 +9,7 @@ import { each } from "../../core/utils/iterator";
 import KeyboardProcessor from "../widget/ui.keyboard_processor";
 import eventUtils from "../../events/utils";
 import pointerEvents from "../../events/pointer";
+import { noop } from "../../core/utils/common";
 
 var ROWS_VIEW_CLASS = "rowsview",
     EDIT_FORM_CLASS = "edit-form",
@@ -1058,7 +1059,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
             return false;
         }
 
-        var key = originalEvent.key || String.fromCharCode(originalEvent.keyCode || originalEvent.which);
+        var key = originalEvent.key || String.fromCharCode(originalEvent.keyCode);
 
         if(key && key.length === 1) {
             this._excelNavigationBeginEditingKey = key;
@@ -1751,6 +1752,30 @@ module.exports = {
                 closeEditCell: function() {
                     this.callBase.apply(this, arguments);
                     this.getController("keyboardNavigation")._excelNavigationBeginEditingKey = null;
+                }
+            },
+            editorFactory: {
+                createEditor: function() {
+                    var keyboardController = this.getController("keyboardNavigation"),
+                        isEditingNavigationMode = keyboardController && keyboardController._isEditingNavigationMode(),
+                        onEditorPrepared = this.option("onEditorPrepared");
+
+                    if(isEditingNavigationMode) {
+                        this.option("onEditorPrepared", function(e) {
+                            var editorInstance;
+
+                            onEditorPrepared && onEditorPrepared(e);
+                            this.option("onEditorPrepared", onEditorPrepared);
+
+                            editorInstance = e.editorElement[e.editorName]("instance");
+                            editorInstance.registerKeyHandler("upArrow", noop);
+                            editorInstance.registerKeyHandler("rightArrow", noop);
+                            editorInstance.registerKeyHandler("downArrow", noop);
+                            editorInstance.registerKeyHandler("leftArrow", noop);
+                        });
+                    }
+
+                    this.callBase.apply(this, arguments);
                 }
             },
             data: {
