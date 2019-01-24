@@ -3087,10 +3087,10 @@ if(device.deviceType === "desktop") {
         // assert
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
 
-        $input = $(".dx-row input").eq(0);
+        $input = $(".dx-row .dx-texteditor-input").eq(0);
         $input.val('Test');
-        keyboardMock($input).keyDown("enter");
-        this.clock.tick();
+        this.triggerKeyDown("enter");
+        this.clock.tick(1000);
 
         // assert
         assert.equal(this.editingController._editRowIndex, -1, "row is editing");
@@ -3125,7 +3125,7 @@ if(device.deviceType === "desktop") {
 
         $input = $(".dx-row input").eq(0);
         $input.val('Test');
-        keyboardMock($input).keyDown("enter");
+        this.triggerKeyDown("enter");
         this.clock.tick();
 
         // assert
