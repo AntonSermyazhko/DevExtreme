@@ -60,12 +60,12 @@ function isCellElement($element) {
 
 var KeyboardNavigationController = core.ViewController.inherit({
     _isRowEditMode: function() {
-        var editMode = this._editingController.getEditMode();
+        var editMode = this.getController("editing").getEditMode();
         return editMode === EDIT_MODE_ROW || editMode === EDIT_MODE_FORM;
     },
 
     _isCellEditMode: function() {
-        var editMode = this._editingController.getEditMode();
+        var editMode = this.getController("editing").getEditMode();
         return editMode === EDIT_MODE_CELL || editMode === EDIT_MODE_BATCH;
     },
 

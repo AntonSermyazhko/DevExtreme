@@ -212,7 +212,6 @@ var EditorFactoryMixin = (function() {
 
     var createEditorCore = function(that, options) {
         var $editorElement = $(options.editorElement),
-            isEditingNavigationMode = that.getController("keyboardNavigation")._isEditingNavigationMode(),
             editorInstance;
 
         if(options.editorName && options.editorOptions && $editorElement[options.editorName]) {
@@ -231,10 +230,12 @@ var EditorFactoryMixin = (function() {
             if(options.editorName === "dxTextBox") {
                 $editorElement.dxTextBox("instance").registerKeyHandler("enter", noop);
             }
-            if(isEditingNavigationMode && (options.editorName === "dxNumberBox" || options.editorName === "dxDateBox")) {
-                editorInstance = options.editorName === "dxNumberBox" ? $editorElement.dxNumberBox("instance") : $editorElement.dxDateBox("instance");
+            if(options.preventArrowKeys) {
+                editorInstance = $editorElement[options.editorName]("instance");
                 editorInstance.registerKeyHandler("upArrow", noop);
+                editorInstance.registerKeyHandler("rightArrow", noop);
                 editorInstance.registerKeyHandler("downArrow", noop);
+                editorInstance.registerKeyHandler("leftArrow", noop);
             }
         }
     };
