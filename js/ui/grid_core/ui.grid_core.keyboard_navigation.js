@@ -716,7 +716,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
         var pageIndex = this._dataController.pageIndex(),
             pageCount = this._dataController.pageCount(),
             pagingEnabled = this.option("paging.enabled"),
-            isPageUp = eventArgs.key === "pageUp",
+            isPageUp = eventArgs.keyName === "pageUp",
             pageStep = (isPageUp ? -1 : 1),
             scrollable = this.getView("rowsView").getScrollable();
 
@@ -1012,7 +1012,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
         this._updateFocusedCellPosition(this._getCellElementFromTarget(args.event.target));
 
         if(!args.handled) {
-            switch(e.key) {
+            switch(e.keyName) {
                 case "leftArrow":
                 case "rightArrow":
                     this._leftRightKeysHandler(e, isEditing);

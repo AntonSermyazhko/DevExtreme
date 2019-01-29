@@ -258,7 +258,8 @@ module.exports = {
                     this._refreshDataSource();
                 },
                 optionChanged: function(args) {
-                    var that = this;
+                    var that = this,
+                        dataSource;
 
                     function handled() {
                         args.handled = true;
@@ -293,7 +294,7 @@ module.exports = {
                             }
                             break;
                         case "paging":
-                            var dataSource = that.dataSource();
+                            dataSource = that.dataSource();
                             if(dataSource && that._setPagingOptions(dataSource)) {
                                 dataSource.load();
                             }
@@ -303,7 +304,7 @@ module.exports = {
                             that.reset();
                             break;
                         case "columns":
-                            var dataSource = that.dataSource();
+                            dataSource = that.dataSource();
                             if(dataSource && dataSource.isLoading() && args.name === args.fullName) {
                                 dataSource.load();
                             }
@@ -594,7 +595,7 @@ module.exports = {
                     return result;
                 },
                 _processItem: function(item, options) {
-                    item = this._generateDataItem(item);
+                    item = this._generateDataItem(item, options);
                     item = this._processDataItem(item, options);
                     item.dataIndex = options.dataIndex++;
                     return item;
@@ -818,7 +819,7 @@ module.exports = {
 
                     result.forEach((change) => {
                         switch(change.type) {
-                            case "update":
+                            case "update": {
                                 let index = change.index,
                                     newItem = change.data,
                                     oldItem = change.oldItem,
@@ -832,6 +833,7 @@ module.exports = {
                                 newItem.oldValues = oldItem.values;
                                 columnIndices.push(currentColumnIndices);
                                 break;
+                            }
                             case "insert":
                                 rowIndices.push(change.index);
                                 changeTypes.push("insert");
