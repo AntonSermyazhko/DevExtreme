@@ -73,6 +73,7 @@ function triggerKeyDown(key, ctrl, shift, target, result) {
         shiftKey: shift,
         altKey: alt,
         target: target && target[0] || target,
+        type: "keydown",
         preventDefault: function() {
             result.preventDefault = true;
         },
@@ -3276,7 +3277,7 @@ if(device.deviceType === "desktop") {
         setupModules(this);
 
         var $container = $("#container"),
-            $input;
+            $editor;
 
         this.$element = function() {
             return $container;
@@ -3299,29 +3300,27 @@ if(device.deviceType === "desktop") {
         // act
         this.triggerKeyDown("D");
         this.clock.tick();
-
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 0, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "D", "input value");
+        assert.deepEqual(this.getController("data").items()[0].data, { Column1: "D" }, "cell value");
 
         // act
         this.triggerKeyDown("enter");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 0, "no editor");
         assert.equal(this.editingController._editRowIndex, -1, "cell is editing");
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-
-        // Under construction
-        // assert.equal(this.getController("data").items()[0].values[0], "D", "cell value");
     });
 
     QUnit.testInActiveWindow("RightArrow key if excelNavigation and editing began by the key press", function(assert) {
@@ -3329,7 +3328,7 @@ if(device.deviceType === "desktop") {
         setupModules(this);
 
         var $container = $("#container"),
-            $input;
+            $editor;
 
         this.$element = function() {
             return $container;
@@ -3353,28 +3352,26 @@ if(device.deviceType === "desktop") {
         this.triggerKeyDown("D");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 0, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 0 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "D", "input value");
+        assert.deepEqual(this.getController("data").items()[0].data, { Column1: "D" }, "cell value");
 
         // act
         this.triggerKeyDown("rightArrow");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
-        assert.equal($input.length, 0, "input");
+        assert.equal($editor.length, 0, "no editor");
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 0 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-
-        // Under construction
-        // assert.equal(this.getController("data").items()[0].values[0], "D", "cell value");
     });
 
     QUnit.testInActiveWindow("LeftArrow key if excelNavigation and editing began by the key press", function(assert) {
@@ -3382,7 +3379,7 @@ if(device.deviceType === "desktop") {
         setupModules(this);
 
         var $container = $("#container"),
-            $input;
+            $editor;
 
         this.$element = function() {
             return $container;
@@ -3406,28 +3403,26 @@ if(device.deviceType === "desktop") {
         this.triggerKeyDown("D");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 1, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 1 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "D", "input value");
+        assert.deepEqual(this.getController("data").items()[1].data, { Column2: "D" }, "cell value");
 
         // act
         this.triggerKeyDown("leftArrow");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
-        assert.equal($input.length, 0, "input");
+        assert.equal($editor.length, 0, "no editor");
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 0, rowIndex: 1 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-
-        // Under construction
-        // assert.equal(this.getController("data").items()[0].values[0], "D", "cell value");
     });
 
     QUnit.testInActiveWindow("UpArrow key if excelNavigation and editing began by the key press", function(assert) {
@@ -3435,7 +3430,7 @@ if(device.deviceType === "desktop") {
         setupModules(this);
 
         var $container = $("#container"),
-            $input;
+            $editor;
 
         this.$element = function() {
             return $container;
@@ -3459,28 +3454,26 @@ if(device.deviceType === "desktop") {
         this.triggerKeyDown("D");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 1, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 1 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "D", "input value");
+        assert.deepEqual(this.getController("data").items()[1].data, { Column2: "D" }, "cell value");
 
         // act
         this.triggerKeyDown("upArrow");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
-        assert.equal($input.length, 0, "input");
+        assert.equal($editor.length, 0, "no editor");
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 0 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-
-        // Under construction
-        // assert.equal(this.getController("data").items()[0].values[0], "D", "cell value");
     });
 
     QUnit.testInActiveWindow("DownArrow key if excelNavigation and editing began by the key press", function(assert) {
@@ -3488,7 +3481,7 @@ if(device.deviceType === "desktop") {
         setupModules(this);
 
         var $container = $("#container"),
-            $input;
+            $editor;
 
         this.$element = function() {
             return $container;
@@ -3512,28 +3505,26 @@ if(device.deviceType === "desktop") {
         this.triggerKeyDown("D");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 1, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 1 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "D", "input value");
+        assert.deepEqual(this.getController("data").items()[1].data, { Column2: "D" }, "cell value");
 
         // act
         this.triggerKeyDown("downArrow");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
-        assert.equal($input.length, 0, "input");
+        assert.equal($editor.length, 0, "no editor");
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 3 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-
-        // Under construction
-        // assert.equal(this.getController("data").items()[0].values[0], "D", "cell value");
     });
 
     QUnit.testInActiveWindow("DownArrow key if excelNavigation and editing began 2nd time by the key press", function(assert) {
@@ -3541,7 +3532,7 @@ if(device.deviceType === "desktop") {
         setupModules(this);
 
         var $container = $("#container"),
-            $input;
+            $editor;
 
         this.$element = function() {
             return $container;
@@ -3565,13 +3556,13 @@ if(device.deviceType === "desktop") {
         this.triggerKeyDown("D");
         this.clock.tick();
 
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
 
         // assert
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 1, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 1 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "D", "input value");
 
         // act
         this.triggerKeyDown("downArrow");
@@ -3580,24 +3571,23 @@ if(device.deviceType === "desktop") {
         this.clock.tick();
 
         // arrange, assert
-        $input = $(".dx-row input").eq(0);
+        $editor = $(".dx-texteditor").eq(0);
+        assert.equal($editor.length, 1, "editor");
         assert.equal(this.editingController._editRowIndex, 3, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 3 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-        assert.equal($input.val(), "A", "input value");
 
         this.triggerKeyDown("downArrow");
         this.clock.tick();
 
         // arrange, assert
-        $input = $(".dx-row input").eq(0);
-        assert.equal($input.length, 0, "input");
+        $editor = $(".dx-texteditor").eq(0);
+        assert.equal($editor.length, 0, "no editor");
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 4 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
-
-        // Under construction
-        // assert.equal(this.getController("data").items()[0].values[0], "D", "cell value");
+        assert.deepEqual(this.getController("data").items()[1].data, { Column2: "D" }, "cell value");
+        assert.deepEqual(this.getController("data").items()[3].data, { Column2: "A" }, "cell value");
     });
     // ->
 
@@ -6117,7 +6107,7 @@ QUnit.module("Keyboard navigation with real dataController and columnsController
         assert.equal(this.keyboardNavigationController._focusedCellPosition.rowIndex, 1, "rowIndex");
     });
 
-    QUnit.testInActiveWindow("Editing navigation mode for number cell and Up/Down arrow keys exit", function(assert) {
+    QUnit.testInActiveWindow("Editing navigation mode for a number cell and Up/Down arrow keys exit", function(assert) {
         // arrange
         var that = this;
         that.$element = function() {
@@ -6182,9 +6172,12 @@ QUnit.module("Keyboard navigation with real dataController and columnsController
         assert.notOk(this.keyboardNavigationController._isEditing);
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 1 }, "focusedCellPosition");
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
+        // Bug in numberbox
+        // assert.deepEqual(this.getController("data").items()[1].data, { Column1: "1" }, "cell value");
+        // assert.deepEqual(this.getController("data").items()[2].data, { Column1: "2" }, "cell value");
     });
 
-    QUnit.testInActiveWindow("Editing navigation mode for number cell and Left/Right arrow keys exit", function(assert) {
+    QUnit.testInActiveWindow("Editing navigation mode for a number cell and Left/Right arrow keys exit", function(assert) {
         // arrange
         var that = this;
         that.$element = function() {
@@ -6251,7 +6244,7 @@ QUnit.module("Keyboard navigation with real dataController and columnsController
         assert.notOk(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
     });
 
-    QUnit.testInActiveWindow("Editing navigation mode for a date cell and Up/Down arrow keys exit", function(assert) {
+    QUnit.testInActiveWindow("Editing navigation mode for a date cell and Up/Down arrow keys", function(assert) {
         // arrange
         var that = this;
         that.$element = function() {
@@ -6288,7 +6281,7 @@ QUnit.module("Keyboard navigation with real dataController and columnsController
         this.clock.tick();
 
         // arrange, assert
-        var $input = $(".dx-row .dx-numberbox .dx-texteditor-container input").eq(0);
+        var $input = $(".dx-texteditor-input").eq(0);
         assert.equal(this.editingController._editRowIndex, 1, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 1 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
@@ -6300,13 +6293,14 @@ QUnit.module("Keyboard navigation with real dataController and columnsController
         this.triggerKeyDown("1");
         this.clock.tick();
 
-        // // arrange, assert
-        $input = $(".dx-row .dx-numberbox .dx-texteditor-container input").eq(0);
+        // arrange, assert
+        $input = $(".dx-texteditor-input").eq(0);
         assert.equal(this.editingController._editRowIndex, 2, "cell is editing");
         assert.deepEqual(this.keyboardNavigationController._focusedCellPosition, { columnIndex: 1, rowIndex: 2 }, "focusedCellPosition");
         assert.ok(this.keyboardNavigationController._isEditingNavigationMode(), "Editing navigation mode");
         assert.equal($input.val(), "1", "input value");
 
+        // act
         this.triggerKeyDown("upArrow");
         this.clock.tick();
 

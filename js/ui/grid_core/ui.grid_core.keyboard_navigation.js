@@ -27,7 +27,6 @@ var ROWS_VIEW_CLASS = "rowsview",
     CELL_FOCUS_DISABLED_CLASS = "dx-cell-focus-disabled",
 
     INTERACTIVE_ELEMENTS_SELECTOR = "input:not([type='hidden']), textarea, a, [tabindex]",
-    EDITOR_INPUT_SELECTOR = ".dx-texteditor-container input",
 
     VIEWS = ["rowsView"],
 
@@ -476,24 +475,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
                     this._navigateNextCell(eventArgs.originalEvent, direction);
                 }
             } else {
-                this._startEditing(eventArgs);
-            }
-        }
-    },
-
-    _handleEnterKeyExcelNavigation: function(eventArgs, isEditing) {
-        var that = this,
-            editorFactory,
-            direction = eventArgs.shift ? "upArrow" : "downArrow",
-            onCellFocused = () => {
-                that._startEditing();
-                editorFactory.focused.remove(onCellFocused);
-            };
-
-        if(that._navigateNextCell(eventArgs.originalEvent, direction)) {
-            if(isEditing) {
-                editorFactory = this.getController("editorFactory");
-                editorFactory.focused.add(onCellFocused);
+                this._startEditing();
             }
         }
     },
@@ -517,26 +499,61 @@ var KeyboardNavigationController = core.ViewController.inherit({
         }
     },
 
-    _startEditing: function(eventArgs) {
-        var that = this,
-            focusedCellPosition = this._focusedCellPosition,
-            editingController = this._editingController,
-            column = this._columnsController.getVisibleColumns()[focusedCellPosition.columnIndex],
+    _startEditing: function() {
+        var focusedCellPosition = this._focusedCellPosition,
             rowIndex = this.getVisibleRowIndex(),
-            row = this._dataController.items()[rowIndex];
+            row = this._dataController.items()[rowIndex],
+            column = this._columnsController.getVisibleColumns()[focusedCellPosition.columnIndex],
+            isAllowEditing = this._editingController.allowUpdating({ row: row }) && column && column.allowEditing;
 
-        if(editingController.allowUpdating({ row: row }) && column && column.allowEditing) {
+        if(isAllowEditing) {
             if(this._isRowEditMode()) {
-                editingController.editRow(rowIndex);
+                this._editingController.editRow(rowIndex);
             } else if(focusedCellPosition) {
-                var editCell = editingController.editCell(rowIndex, focusedCellPosition.columnIndex);
-
-                if(that._isEditingNavigationMode() && (editCell === true || editCell && editCell.done(function() {
-                    var $input = that._getFocusedCell().find(EDITOR_INPUT_SELECTOR).eq(0);
-                    $input.val(that._excelNavigationBeginEditingKey);
-                    eventsEngine.trigger($input, "input");
-                })));
+                this._startEditingCell();
             }
+        }
+    },
+
+    _startEditingCell: function() {
+        var that = this,
+            rowIndex = this.getVisibleRowIndex(),
+            colIndex = this._focusedCellPosition.columnIndex,
+            editingCellHandler = function() {
+                var column = that._columnsController.getVisibleColumns()[colIndex];
+                if(column) {
+                    var dataType = column.dataType,
+                        editorType = that._getEditorTypeByDataType(dataType),
+                        $focusedCell = that._getFocusedCell(),
+                        $editor = $focusedCell && $focusedCell.find(".dx-texteditor").eq(0),
+                        instance = $editor && $editor[editorType]("instance");
+                    if(instance) {
+                        instance.option("value", that._excelNavigationBeginEditingKey);
+                    }
+                }
+            },
+            deferred = this._editingController.editCell(rowIndex, colIndex);
+
+        if(this._isEditingNavigationMode()) {
+            if(deferred === true) {
+                editingCellHandler();
+            } else if(deferred && deferred.done) {
+                deferred.done(editingCellHandler);
+            }
+        }
+    },
+
+    _getEditorTypeByDataType: function(dataType) {
+        switch(dataType) {
+            case "date":
+            case "datetime":
+                return "dxDateBox";
+            case "boolean":
+                return "dxCheckBox";
+            case "number":
+                return "dxNumberBox";
+            default:
+                return "dxTextBox";
         }
     },
 
@@ -570,7 +587,9 @@ var KeyboardNavigationController = core.ViewController.inherit({
             allowNavigate = (!isEditing || isEditingNavigationMode) && $row && !isDetailRow($row);
 
         if(allowNavigate) {
-            isEditingNavigationMode && this._editingController.closeEditCell();
+            if(isEditingNavigationMode) {
+                this._editingController.closeEditCell();
+            }
             if(!this._navigateNextCell($event, eventArgs.key)) {
                 if(this._isVirtualScrolling() && isUpArrow && dataSource && !dataSource.isLoading()) {
                     rowHeight = $row.outerHeight();
@@ -1059,11 +1078,11 @@ var KeyboardNavigationController = core.ViewController.inherit({
             return false;
         }
 
-        var key = originalEvent.key || String.fromCharCode(originalEvent.keyCode);
+        var key = originalEvent.key || String.fromCharCode(originalEvent.keyCode || originalEvent.which);
 
         if(key && key.length === 1) {
             this._excelNavigationBeginEditingKey = key;
-            this._startEditing();
+            this._startEditing(originalEvent);
         }
 
         return true;

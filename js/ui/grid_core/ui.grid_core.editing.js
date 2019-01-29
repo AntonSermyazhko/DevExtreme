@@ -133,7 +133,7 @@ var EditingController = modules.ViewController.inherit((function() {
                 width: null,
                 readOnly: !options.setValue,
                 isOnForm: options.isOnForm,
-                id: options.id,
+                id: options.id
             }));
         };
     };
@@ -1549,14 +1549,13 @@ var EditingController = modules.ViewController.inherit((function() {
             var that = this,
                 editMode = getEditMode(that),
                 oldEditRowIndex = that._getVisibleEditRowIndex(),
-                isExcelNavigation = that.option("excelNavigation"),
                 dataController = that._dataController;
 
             if(!isRowEditMode(that)) {
                 setTimeout(function() {
                     if(editMode === EDIT_MODE_CELL && that.hasChanges()) {
                         that.saveEditData().done(function() {
-                            if(!isExcelNavigation && !that.hasChanges()) {
+                            if(!that.hasChanges()) {
                                 that.closeEditCell();
                             }
                         });
