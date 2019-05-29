@@ -7,7 +7,6 @@ import typeUtils from "../../core/utils/type";
 import { each } from "../../core/utils/iterator";
 import { extend } from "../../core/utils/extend";
 import modules from "./ui.grid_core.modules";
-import clickEvent from "../../events/click";
 import pointerEvents from "../../events/pointer";
 import { getIndexByKey, createObjectWithChanges, setEmptyText, getSelectionRange, setSelectionRange } from "./ui.grid_core.utils";
 import { addNamespace } from "../../events/utils";
@@ -24,6 +23,7 @@ import commonUtils from "../../core/utils/common";
 import iconUtils from "../../core/utils/icon";
 import Scrollable from "../scroll_view/ui.scrollable";
 import deferredUtils from "../../core/utils/deferred";
+import eventUtils from "../../events/utils";
 
 var EDIT_FORM_CLASS = "edit-form",
     EDIT_FORM_ITEM_CLASS = "edit-form-item",
@@ -782,7 +782,9 @@ var EditingController = modules.ViewController.inherit((function() {
                 that._delayedInputFocus($firstCell, function() {
                     that._editCellInProgress = false;
                     var $cell = that.getFirstEditableCellInRow(insertKey.rowIndex);
-                    $cell && eventsEngine.trigger($cell, clickEvent.name);
+
+                    let eventName = eventUtils.addNamespace(pointerEvents.down, "dxDataGridKeyboardNavigation");
+                    $cell && eventsEngine.trigger($cell, eventName);
                 });
             }
 

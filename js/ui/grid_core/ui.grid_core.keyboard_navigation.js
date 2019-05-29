@@ -182,6 +182,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
 
             if(this._allowRowUpdating() && isCellEditMode && column && column.allowEditing) {
                 this._isHiddenFocus = false;
+                this._focus($cell);
             } else {
                 let $target = event && $(event.target),
                     isInteractiveTarget = $target && $target.not($cell).is(INTERACTIVE_ELEMENTS_SELECTOR),
