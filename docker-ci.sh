@@ -32,7 +32,7 @@ function run_ts {
 
 function run_test {
     export DEVEXTREME_QUNIT_CI=true
-    
+
     local port=`node -e "console.log(require('./ports.json').qunit)"`
     local url="http://localhost:$port/run?notimers=true&nojquery=true"
     local runner_pid
@@ -107,6 +107,14 @@ function run_test_themebuilder {
     npm run test
 }
 
+function run_test_functional {
+    npm i
+    npm run build
+
+    google-chrome-stable --version
+
+    npm run test-functional -- --browsers chrome:headless
+}
 
 echo "node $(node -v), npm $(npm -v), dotnet $(dotnet --version)"
 
@@ -115,6 +123,7 @@ case "$TARGET" in
     "ts") run_ts ;;
     "test") run_test ;;
     "test_themebuilder") run_test_themebuilder ;;
+    "test_functional") run_test_functional ;;
 
     *)
         echo "Unknown target"

@@ -103,7 +103,8 @@
     "webpack-stream": "^3.2.0",
     "yargs": "^4.6.0",
     "testcafe": "^1.2.0",
-    "nconf": "^0.10.0"
+    "nconf": "^0.10.0",
+    "minimist": "^1.2.0"
   },
   "bin": {
     "devextreme-bundler-init": "bin/bundler-init.js",
