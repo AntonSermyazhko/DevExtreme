@@ -1,7 +1,7 @@
 import { createWidget, getContainerFileUrl } from '../../helpers/testHelper';
 import DataGridTestHelper from '../../helpers/dataGrid.test.helper';
 
-fixture`Virtual Columns`
+fixture `Virtual Columns`
     .page(getContainerFileUrl());
 
 const dataGrid = new DataGridTestHelper("#container");

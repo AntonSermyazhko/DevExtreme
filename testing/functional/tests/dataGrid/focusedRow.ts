@@ -2,7 +2,7 @@ import { createWidget, getContainerFileUrl } from '../../helpers/testHelper';
 import { ClientFunction } from 'testcafe';
 import DataGridTestHelper from '../../helpers/dataGrid.test.helper';
 
-fixture`Focused Row`
+fixture `Focused Row`
     .page(getContainerFileUrl());
 
 const dataGrid = new DataGridTestHelper("#container");

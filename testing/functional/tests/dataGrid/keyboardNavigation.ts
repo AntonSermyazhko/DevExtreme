@@ -11,6 +11,7 @@ test("Cell should not highlighted after editing another cell when startEditActio
     await t.expect(dataGrid.cellHasFocusClass(1, 1)).notOk();
 
     await t.doubleClick(dataGrid.getDataCell(1, 1));
+    await t.expect(dataGrid.isEditCell(1, 1)).ok();
     await t.expect(dataGrid.cellHasFocusClass(0, 1)).notOk();
     await t.expect(dataGrid.cellHasFocusClass(1, 1)).ok();
 
@@ -20,8 +21,9 @@ test("Cell should not highlighted after editing another cell when startEditActio
     await t.expect(dataGrid.isEditCell(1, 1)).notOk();
 
     await t.doubleClick(dataGrid.getDataCell(1, 1));
+    await t.expect(dataGrid.isEditCell(1, 1)).ok();
     await t.expect(dataGrid.cellHasFocusClass(0, 1)).notOk();
-    // await t.expect(dataGrid.cellHasFocusClass(1, 1)).ok();
+    await t.expect(dataGrid.cellHasFocusClass(1, 1)).ok();
 
     await t.click(dataGrid.getDataCell(0, 1));
     await t.expect(dataGrid.getDataCell(0, 1).focused).ok();
@@ -29,11 +31,11 @@ test("Cell should not highlighted after editing another cell when startEditActio
     await t.expect(dataGrid.cellHasFocusClass(1, 1)).notOk();
 }).before(async () => {
     await createWidget("dxDataGrid", {
+        width: 200,
         dataSource: [
             { name: "Alex", phone: "555555", room: 1 },
             { name: "Dan", phone: "553355", room: 2 }
         ],
-        columns:["name","phone","room"],
         editing: {
             mode: "batch",
             allowUpdating: true,
