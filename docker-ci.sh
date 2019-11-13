@@ -38,7 +38,7 @@ function run_test {
     local runner_pid
     local runner_result=0
 
-    [ -n "$CONSTEL" ] && url="$url&constellation=$CONSTEL"
+    [ -n "$CONSTEL" ] && url="http://localhost:20030/run/DevExpress.performance/collectionStyleRecalculations.tests.js?notimers=true&nojquery=true"
     [ -z "$JQUERY"  ] && url="$url&nojquery=true"
 
     if [ "$HEADLESS" != "true" ]; then
@@ -89,6 +89,8 @@ function run_test {
                     --no-first-run \
                     --no-default-browser-check \
                     --disable-translate \
+                    --remote-debugging-address=0.0.0.0 \
+                    --remote-debugging-port=9222 \
                     $url &
             fi
         ;;
