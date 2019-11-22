@@ -73,12 +73,12 @@ function run_test {
         *)
             google-chrome-stable --version
 
-            local aser_agent=""
-            [ "$MOBILE_UA" == "ios9" ] && aser_agent=`--user-agent=$ios9_UA`
+            local user_agent=""
+            [ "$MOBILE_UA" == "ios9" ] && user_agent="--user-agent=$ios9_UA"
 
             if [ "$HEADLESS" == "true" ]; then
                 google-chrome-stable \
-                    $aser_agent
+                    $user_agent \
                     --no-sandbox \
                     --disable-dev-shm-usage \
                     --disable-gpu \
@@ -86,11 +86,11 @@ function run_test {
                     --headless \
                     --remote-debugging-address=0.0.0.0 \
                     --remote-debugging-port=9222 \
-                    --user-agent=$userAgent
+                    --user-agent=$userAgent \
                     $url &>headless-chrome.log &
             else
                 dbus-launch \
-                    $aser_agent
+                    $user_agent \
                     --exit-with-session google-chrome-stable \
                     --no-sandbox \
                     --disable-dev-shm-usage \
