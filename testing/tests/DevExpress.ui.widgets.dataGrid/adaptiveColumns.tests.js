@@ -4320,7 +4320,7 @@ QUnit.module("Keyboard navigation", {
     // T821699
     QUnit.test("The onRowDblClick event is not called after click on adaptive panel item", function(assert) {
         if(device.deviceType !== "desktop") {
-            assert.ok(true, "test is not actual for mobile devices");
+            assert.notOk(true, "test is not actual for mobile devices");
             return;
         }
 
