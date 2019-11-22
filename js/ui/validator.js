@@ -4,7 +4,6 @@ import errors from "./widget/ui.errors";
 import DOMComponent from "../core/dom_component";
 import { extend } from "../core/utils/extend";
 import { map } from "../core/utils/iterator";
-import ValidationMixin from "./validation/validation_mixin";
 import ValidationEngine from "./validation_engine";
 import DefaultAdapter from "./validation/default_adapter";
 import registerComponent from "../core/component_registrator";
@@ -26,7 +25,7 @@ const VALIDATOR_CLASS = "dx-validator",
 const Validator = DOMComponent.inherit({
     _initOptions: function(options) {
         this.callBase.apply(this, arguments);
-        this._initValidationOptions(options);
+        this.option(ValidationEngine.initValidationOptions(options));
     },
 
     _getDefaultOptions() {
@@ -85,7 +84,7 @@ const Validator = DOMComponent.inherit({
             * @type_function_param1_field4 validationRules:Array<RequiredRule,NumericRule,RangeRule,StringLengthRule,CustomRule,CompareRule,PatternRule,EmailRule,AsyncRule>
             * @type_function_param1_field5 brokenRule:RequiredRule|NumericRule|RangeRule|StringLengthRule|CustomRule|CompareRule|PatternRule|EmailRule|AsyncRule
             * @type_function_param1_field6 brokenRules:Array<RequiredRule,NumericRule,RangeRule,StringLengthRule,CustomRule,CompareRule,PatternRule,EmailRule,AsyncRule>
-            * @type_function_param1_field6 status:Enums.ValidationStatus
+            * @type_function_param1_field7 status:Enums.ValidationStatus
             * @action
             */
 
@@ -119,7 +118,8 @@ const Validator = DOMComponent.inherit({
         this._initAdapter();
         this._validationInfo = {
             result: null,
-            deferred: null
+            deferred: null,
+            skipValidation: false
         };
     },
 
@@ -153,6 +153,9 @@ const Validator = DOMComponent.inherit({
             if(dxStandardEditor) {
                 adapter = new DefaultAdapter(dxStandardEditor, this);
                 adapter.validationRequestsCallbacks.add((args) => {
+                    if(this._validationInfo.skipValidation) {
+                        return;
+                    }
                     this.validate(args);
                 });
                 this.option("adapter", adapter);
@@ -200,7 +203,7 @@ const Validator = DOMComponent.inherit({
                 break;
             case "isValid":
             case "validationStatus":
-                this._synchronizeValidationOptions(args);
+                this.option(ValidationEngine.synchronizeValidationOptions(args, this.option()));
                 break;
             default:
                 this.callBase(args);
@@ -217,6 +220,13 @@ const Validator = DOMComponent.inherit({
             });
         }
         return this._validationRules;
+    },
+
+    _findGroup() {
+        const $element = this.$element();
+
+        return this.option('validationGroup') ||
+            ValidationEngine.findGroup($element, this._modelByElement($element));
     },
 
     _resetValidationRules() {
@@ -237,7 +247,7 @@ const Validator = DOMComponent.inherit({
             rules = this._getValidationRules();
         const currentResult = this._validationInfo && this._validationInfo.result;
         if(currentResult && currentResult.status === VALIDATION_STATUS_PENDING && currentResult.value === value) {
-            return currentResult;
+            return extend({}, currentResult);
         }
         let result;
         if(bypass) {
@@ -255,7 +265,7 @@ const Validator = DOMComponent.inherit({
                 this._applyValidationResult(res, adapter);
             }
         });
-        return this._validationInfo.result;
+        return extend({}, this._validationInfo.result);
     },
 
     /**
@@ -265,6 +275,7 @@ const Validator = DOMComponent.inherit({
     reset() {
         const adapter = this.option("adapter"),
             result = {
+                id: null,
                 isValid: true,
                 brokenRule: null,
                 brokenRules: null,
@@ -272,14 +283,18 @@ const Validator = DOMComponent.inherit({
                 status: VALIDATION_STATUS_VALID,
                 complete: null
             };
+
+        this._validationInfo.skipValidation = true;
         adapter.reset();
+        this._validationInfo.skipValidation = false;
         this._resetValidationRules();
         this._applyValidationResult(result, adapter);
     },
 
     _updateValidationResult(result) {
         if(!this._validationInfo.result || this._validationInfo.result.id !== result.id) {
-            this._validationInfo.result = extend({}, result);
+            const complete = this._validationInfo.deferred && this._validationInfo.result.complete;
+            this._validationInfo.result = extend({}, result, { complete });
         } else {
             for(let prop in result) {
                 if(prop !== "id" && prop !== "complete") {
@@ -321,7 +336,7 @@ const Validator = DOMComponent.inherit({
         const adapter = this.option("adapter");
         adapter && adapter.focus && adapter.focus();
     }
-}).include(ValidationMixin);
+});
 
 registerComponent("dxValidator", Validator);
 

@@ -554,10 +554,14 @@ var Overlay = Widget.inherit({
                 e.preventDefault();
             }
 
-            this.hide();
+            this._outsideClickHandler(e);
         }
 
         return this.option("propagateOutsideClick");
+    },
+
+    _outsideClickHandler() {
+        this.hide();
     },
 
     _initTemplates: function() {
@@ -652,6 +656,12 @@ var Overlay = Widget.inherit({
             var show = function() {
                 this._renderVisibility(true);
 
+                if(this._isShowingActionCanceled) {
+                    delete this._isShowingActionCanceled;
+                    deferred.resolve();
+                    return;
+                }
+
                 this._animate(showAnimation, function() {
                     if(that.option("focusStateEnabled")) {
                         eventsEngine.trigger(that._focusTarget(), "focus");
@@ -709,36 +719,40 @@ var Overlay = Widget.inherit({
             completeHideAnimation = (hideAnimation && hideAnimation.complete) || noop,
             hidingArgs = { cancel: false };
 
-        this._actions.onHiding(hidingArgs);
-
-        that._toggleSafariScrolling(true);
-
-        if(hidingArgs.cancel) {
-            this._isHidingActionCanceled = true;
-            this.option("visible", true);
+        if(this._isShowingActionCanceled) {
             deferred.resolve();
         } else {
-            this._forceFocusLost();
-            this._toggleShading(false);
-            this._toggleSubscriptions(false);
-            this._stopShowTimer();
+            this._actions.onHiding(hidingArgs);
 
-            this._animate(hideAnimation,
-                function() {
-                    that._$content.css("pointerEvents", "");
-                    that._renderVisibility(false);
+            that._toggleSafariScrolling(true);
 
-                    completeHideAnimation.apply(this, arguments);
-                    that._actions.onHidden();
+            if(hidingArgs.cancel) {
+                this._isHidingActionCanceled = true;
+                this.option("visible", true);
+                deferred.resolve();
+            } else {
+                this._forceFocusLost();
+                this._toggleShading(false);
+                this._toggleSubscriptions(false);
+                this._stopShowTimer();
 
-                    deferred.resolve();
-                },
+                this._animate(hideAnimation,
+                    function() {
+                        that._$content.css("pointerEvents", "");
+                        that._renderVisibility(false);
 
-                function() {
-                    that._$content.css("pointerEvents", "none");
-                    startHideAnimation.apply(this, arguments);
-                }
-            );
+                        completeHideAnimation.apply(this, arguments);
+                        that._actions.onHidden();
+
+                        deferred.resolve();
+                    },
+
+                    function() {
+                        that._$content.css("pointerEvents", "none");
+                        startHideAnimation.apply(this, arguments);
+                    }
+                );
+            }
         }
         return deferred.promise();
     },
@@ -789,7 +803,18 @@ var Overlay = Widget.inherit({
 
         if(visible) {
             this._renderContent();
-            this._actions.onShowing();
+
+            const showingArgs = { cancel: false };
+            this._actions.onShowing(showingArgs);
+            if(showingArgs.cancel) {
+                this._toggleVisibility(false);
+                this._$content.toggleClass(INVISIBLE_STATE_CLASS, true);
+                this._updateZIndexStackPosition(false);
+                this._moveFromContainer();
+                this._isShowingActionCanceled = true;
+                this.option("visible", false);
+                return;
+            }
 
             this._moveToContainer();
             this._renderGeometry();
@@ -1097,7 +1122,11 @@ var Overlay = Widget.inherit({
             getDirection: function() {
                 return "both";
             },
-            _toggleGestureCover: noop,
+            _toggleGestureCover: function(toggle) {
+                if(!toggle) {
+                    this._toggleGestureCoverImpl(toggle);
+                }
+            },
             _clearSelection: noop,
             isNative: true
         }, function(e) {
@@ -1272,19 +1301,37 @@ var Overlay = Widget.inherit({
 
     _renderShading: function() {
         this._fixWrapperPosition();
+        this._renderShadingDimensions();
         this._renderShadingPosition();
+    },
+
+    _renderShadingDimensions: function() {
+        var wrapperWidth, wrapperHeight;
+        var $container = this._getContainer();
+        if(!$container) {
+            return;
+        }
+
+        var isWindow = this._isWindow($container);
+
+        wrapperWidth = isWindow ? null : $container.outerWidth(),
+        wrapperHeight = isWindow ? null : $container.outerHeight();
+
+        this._$wrapper.css({
+            width: wrapperWidth,
+            height: wrapperHeight
+        });
+    },
+
+    _isWindow: function($element) {
+        return !!$element && typeUtils.isWindow($element.get(0));
     },
 
     _renderShadingPosition: function() {
         if(this.option("shading")) {
             var $container = this._getContainer();
-
             positionUtils.setup(this._$wrapper, { my: "top left", at: "top left", of: $container });
         }
-    },
-
-    _isWindow: function($element) {
-        return !!$element && typeUtils.isWindow($element.get(0));
     },
 
     _getContainer: function() {
@@ -1538,7 +1585,7 @@ var Overlay = Widget.inherit({
 
         animateDeferred.promise().done((function() {
             delete this._animateDeferred;
-            result.resolveWith(this, [showing]);
+            result.resolveWith(this, [this.option("visible")]);
         }).bind(this));
 
         return result.promise();

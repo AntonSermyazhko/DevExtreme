@@ -33,7 +33,8 @@ const koDxValidator = Class.inherit({
 
     _updateValidationResult(result) {
         if(!this._validationInfo.result || this._validationInfo.result.id !== result.id) {
-            this._validationInfo.result = extend({}, result);
+            const complete = this._validationInfo.deferred && this._validationInfo.result.complete;
+            this._validationInfo.result = extend({}, result, { complete });
         } else {
             for(let prop in result) {
                 if(prop !== "id" && prop !== "complete") {
@@ -47,7 +48,7 @@ const koDxValidator = Class.inherit({
         const currentResult = this._validationInfo && this._validationInfo.result,
             value = this.target();
         if(currentResult && currentResult.status === VALIDATION_STATUS_PENDING && currentResult.value === value) {
-            return currentResult;
+            return extend({}, currentResult);
         }
         let result = ValidationEngine.validate(value, this.validationRules, this.name);
         result.id = new Guid().toString();
@@ -57,18 +58,20 @@ const koDxValidator = Class.inherit({
                 this._applyValidationResult(res);
             }
         });
-        return this._validationInfo.result;
+        return extend({}, this._validationInfo.result);
     },
 
     reset() {
         this.target(null);
         const result = {
+            id: null,
             isValid: true,
             brokenRule: null,
             pendingRules: null,
             status: VALIDATION_STATUS_VALID,
             complete: null
         };
+
         this._applyValidationResult(result);
         return result;
     },

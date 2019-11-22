@@ -60,6 +60,17 @@ var Sortable = Draggable.inherit({
              */
             moveItemOnDrop: false,
             /**
+             * @name dxSortableOptions.dragTemplate
+             * @type template|function
+             * @type_function_param1 dragInfo:object
+             * @type_function_param1_field1 itemData:any
+             * @type_function_param1_field2 itemElement:dxElement
+             * @type_function_param1_field3 fromIndex:number
+             * @type_function_param2 containerElement:dxElement
+             * @type_function_return string|Node|jQuery
+             * @default undefined
+             */
+            /**
              * @name dxSortableOptions.onDragStart
              * @type function(e)
              * @extends Action
@@ -243,6 +254,10 @@ var Sortable = Draggable.inherit({
     _dragEnterHandler: function() {
         this.callBase.apply(this, arguments);
 
+        if(this === this._getSourceDraggable()) {
+            return;
+        }
+
         this._updateItemPoints();
         this.option("fromIndex", -1);
 
@@ -282,11 +297,19 @@ var Sortable = Draggable.inherit({
     },
 
     dragEnter: function() {
-        this.option("toIndex", -1);
+        if(this === this._getTargetDraggable()) {
+            this.option("toIndex", this.option("fromIndex"));
+        } else {
+            this.option("toIndex", -1);
+        }
     },
 
     dragLeave: function() {
-        this.option("toIndex", null);
+        if(this === this._getTargetDraggable()) {
+            this.option("toIndex", -1);
+        } else {
+            this.option("toIndex", this.option("fromIndex"));
+        }
     },
 
     dragEnd: function(sourceEvent) {
@@ -343,6 +366,10 @@ var Sortable = Draggable.inherit({
         }
         if(itemPoint) {
             this._updatePlaceholderPosition(e, itemPoint);
+
+            if(this.verticalScrollHelper.isScrolling() && this._isIndicateMode()) {
+                this._movePlaceholder();
+            }
         }
     },
 
@@ -367,7 +394,7 @@ var Sortable = Draggable.inherit({
     _getItems: function() {
         let itemsSelector = this._getItemsSelector();
 
-        return this.$element()
+        return this._$content()
             .find(itemsSelector)
             .not("." + this._addWidgetPrefix(PLACEHOLDER_CLASS))
             .not("." + this._addWidgetPrefix(CLONE_CLASS))
@@ -384,7 +411,7 @@ var Sortable = Draggable.inherit({
     _isValidPoint: function($items, itemPointIndex, dropInsideItem) {
         let allowReordering = dropInsideItem || this._allowReordering();
 
-        if(!allowReordering) {
+        if(!allowReordering && itemPointIndex !== 0) {
             return false;
         }
 
@@ -464,9 +491,11 @@ var Sortable = Draggable.inherit({
     },
 
     _getDragTemplateArgs: function($element) {
-        return extend(this.callBase.apply(this, arguments), {
-            index: this._getElementIndex($element)
-        });
+        let args = this.callBase.apply(this, arguments);
+
+        args.model.fromIndex = this._getElementIndex($element);
+
+        return args;
     },
 
     _togglePlaceholder: function(value) {
@@ -480,6 +509,10 @@ var Sortable = Draggable.inherit({
     _normalizeToIndex: function(toIndex, dropInsideItem) {
         let isAnotherDraggable = this._getSourceDraggable() !== this._getTargetDraggable(),
             fromIndex = this.option("fromIndex");
+
+        if(toIndex === null) {
+            return fromIndex;
+        }
 
         return Math.max(isAnotherDraggable || fromIndex >= toIndex || dropInsideItem ? toIndex : toIndex - 1, 0);
     },
@@ -622,6 +655,35 @@ var Sortable = Draggable.inherit({
         }
     },
 
+    _isPositionVisible: function(position) {
+        var $element = this.$element(),
+            scrollContainer;
+
+        if($element.css("overflow") !== "hidden") {
+            scrollContainer = $element.get(0);
+        } else {
+            $element.parents().each(function() {
+                if($(this).css("overflow") !== "visible") {
+                    scrollContainer = this;
+                    return false;
+                }
+            });
+        }
+
+        if(scrollContainer) {
+            let clientRect = scrollContainer.getBoundingClientRect(),
+                isVerticalOrientation = this._isVerticalOrientation(),
+                start = isVerticalOrientation ? "top" : "left",
+                end = isVerticalOrientation ? "bottom" : "right";
+
+            if(position[start] < clientRect[start] || position[start] > clientRect[end]) {
+                return false;
+            }
+        }
+
+        return true;
+    },
+
     _optionChangedToIndex: function(args) {
         let toIndex = args.value;
 
@@ -629,30 +691,42 @@ var Sortable = Draggable.inherit({
             let showPlaceholder = toIndex !== null && toIndex >= 0;
 
             this._togglePlaceholder(showPlaceholder);
+
             if(showPlaceholder) {
-                let $placeholderElement = this._$placeholderElement || this._createPlaceholder(),
-                    items = this._getItems(),
-                    itemElement = items[toIndex],
-                    prevItemElement = items[toIndex - 1],
-                    isVerticalOrientation = this._isVerticalOrientation(),
-                    position;
-
-                this._updatePlaceholderSizes($placeholderElement, itemElement);
-
-                if(itemElement) {
-                    position = $(itemElement).offset();
-                } else if(prevItemElement) {
-                    position = $(prevItemElement).offset();
-                    position.top += isVerticalOrientation ? $(prevItemElement).outerHeight(true) : $(prevItemElement).outerWidth(true);
-                }
-                if(position) {
-                    this._move(position, $placeholderElement);
-                }
-                $placeholderElement.toggle(!!position);
+                this._movePlaceholder();
             }
         } else {
             this._moveItems(args.previousValue, args.value);
         }
+    },
+
+    _movePlaceholder: function() {
+        let $placeholderElement = this._$placeholderElement || this._createPlaceholder(),
+            items = this._getItems(),
+            toIndex = this.option("toIndex"),
+            itemElement = items[toIndex],
+            prevItemElement = items[toIndex - 1],
+            isVerticalOrientation = this._isVerticalOrientation(),
+            position = null;
+
+        this._updatePlaceholderSizes($placeholderElement, itemElement);
+
+        if(itemElement) {
+            position = $(itemElement).offset();
+        } else if(prevItemElement) {
+            position = $(prevItemElement).offset();
+            position.top += isVerticalOrientation ? $(prevItemElement).outerHeight(true) : $(prevItemElement).outerWidth(true);
+        }
+
+        if(position && !this._isPositionVisible(position)) {
+            position = null;
+        }
+
+        if(position) {
+            this._move(position, $placeholderElement);
+        }
+
+        $placeholderElement.toggle(!!position);
     },
 
     _getPositions: function(items, elementSize, fromIndex, toIndex) {
@@ -706,6 +780,7 @@ var Sortable = Draggable.inherit({
                 position = positions[i];
 
             if(toIndex === null || fromIndex === null) {
+                fx.stop($item);
                 translator.resetPosition($item);
             } else if(prevPosition !== position) {
                 fx.stop($item);

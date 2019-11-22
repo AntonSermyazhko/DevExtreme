@@ -1,6 +1,6 @@
 import treeListCore from './ui.tree_list.core';
 import errors from '../widget/ui.errors';
-import commonUtils from '../../core/utils/common';
+import { equalByValue } from '../../core/utils/common';
 import typeUtils from '../../core/utils/type';
 import { each } from '../../core/utils/iterator';
 import dataCoreUtils from '../../core/utils/data';
@@ -270,7 +270,7 @@ var DataSourceAdapterTreeList = DataSourceAdapter.inherit((function() {
             for(var i = 0; i < parentIds.length; i++) {
                 var node = this.getNodeByKey(parentIds[i]);
 
-                if(node && node.hasChildren && !node.children.length) {
+                if(!node || node.hasChildren && !node.children.length) {
                     parentIdsToLoad.push(parentIds[i]);
                 }
             }
@@ -364,7 +364,7 @@ var DataSourceAdapterTreeList = DataSourceAdapter.inherit((function() {
                 return d.resolve(data);
             }
 
-            var cachedNodes = keys.map(id => this.getNodeByKey(id)).filter(node => node);
+            var cachedNodes = keys.map(id => this.getNodeByKey(id)).filter(node => node && node.data);
 
             if(cachedNodes.length === keys.length) {
                 if(needChildren) {
@@ -498,7 +498,7 @@ var DataSourceAdapterTreeList = DataSourceAdapter.inherit((function() {
         _applyRemove: function(change) {
             var baseChanges = [];
             var node = this.getNodeByKey(change.key);
-            var parentNode = node.parent;
+            var parentNode = node && node.parent;
 
             if(parentNode) {
                 var index = parentNode.children.indexOf(node);
@@ -635,6 +635,17 @@ var DataSourceAdapterTreeList = DataSourceAdapter.inherit((function() {
             that.callBase(options);
         },
 
+        _handlePush: function(changes) {
+            let reshapeOnPush = this._dataSource._reshapeOnPush,
+                isNeedReshape = reshapeOnPush && !!changes.length;
+
+            if(isNeedReshape) {
+                this._isReload = true;
+            }
+
+            this.callBase.apply(this, arguments);
+        },
+
         init: function(dataSource, remoteOperations) {
             this.callBase.apply(this, arguments);
 
@@ -663,7 +674,7 @@ var DataSourceAdapterTreeList = DataSourceAdapter.inherit((function() {
                 keyExpr = this.option("keyExpr");
 
             if(typeUtils.isDefined(key) && typeUtils.isDefined(keyExpr)) {
-                if(!commonUtils.equalByValue(key, keyExpr)) {
+                if(!equalByValue(key, keyExpr)) {
                     throw errors.Error("E1044");
                 }
             }

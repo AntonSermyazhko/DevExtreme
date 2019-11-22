@@ -39,8 +39,8 @@ QUnit.module("Appointment popup form", moduleConfig, () => {
         }
     ];
 
-    const createScheduler = () => {
-        return createWrapper({
+    const createScheduler = (options = {}) => {
+        const defaultOption = {
             dataSource: defaultData,
             views: ["month"],
             currentView: "month",
@@ -49,8 +49,48 @@ QUnit.module("Appointment popup form", moduleConfig, () => {
             startDayHour: 9,
             height: 600,
             width: 600
-        });
+        };
+
+        return createWrapper($.extend(defaultOption, options));
     };
+
+    QUnit.test("onAppointmentFormOpening event should handle e.cancel value", assert => {
+        const data = [{
+            text: "Website Re-Design Plan",
+            startDate: new Date(2017, 4, 22, 9, 30),
+            endDate: new Date(2017, 4, 22, 11, 30)
+        }];
+
+        const scheduler = createScheduler({ dataSource: data });
+
+        const testCases = [
+            {
+                expected: true,
+                handler: undefined,
+                text: "appointment popup should visible in default setting case"
+            }, {
+                expected: false,
+                handler: e => e.cancel = true,
+                text: "appointment popup should prevent visible in 'e.cancel = true' case"
+            }, {
+                expected: true,
+                handler: e => e.cancel = false,
+                text: "appointment popup should visible in 'e.cancel = false' case"
+            }
+        ];
+
+        testCases.forEach(({ handler, expected, text }) => {
+            scheduler.option("onAppointmentFormOpening", handler);
+
+            scheduler.appointments.dblclick();
+            assert.equal(scheduler.appointmentPopup.isVisible(), expected, text + " if call from UI");
+            scheduler.instance.getAppointmentPopup().option('visible', false);
+
+            scheduler.instance.showAppointmentPopup(data[0]);
+            assert.equal(scheduler.appointmentPopup.isVisible(), expected, text + " if call showAppointmentPopup method");
+            scheduler.instance.getAppointmentPopup().option('visible', false);
+        });
+    });
 
     QUnit.test("Appointment popup should work properly", assert => {
         const NEW_EXPECTED_SUBJECT = "NEW SUBJECT";
@@ -1154,3 +1194,48 @@ QUnit.test("The resize event of appointment popup is triggered the the window is
     resizeCallbacks.fire();
     assert.ok(isResizeEventTriggered, "The resize event of popup is triggered");
 });
+
+QUnit.test("Popup should not be closed until the valid value is typed", function(assert) {
+    const startDate = new Date(2015, 1, 1, 1),
+        validValue = "Test",
+        done = assert.async();
+    const scheduler = createInstance();
+    scheduler.instance.option("onAppointmentFormOpening", function(data) {
+        const items = data.form.option("items");
+        items[0].validationRules = [
+            {
+                type: "async",
+                validationCallback: function(params) {
+                    const d = $.Deferred();
+                    setTimeout(function() {
+                        d.resolve(params.value === validValue);
+                    }, 10);
+                    return d.promise();
+                }
+            }
+        ];
+
+        data.form.option("items", items);
+    });
+
+    scheduler.instance.showAppointmentPopup({
+        startDate: startDate,
+        endDate: new Date(2015, 1, 1, 2),
+        text: "caption"
+    });
+
+    scheduler.appointmentForm.setSubject("caption1");
+    scheduler.appointmentPopup.saveAppointmentData().done(() => {
+        assert.equal(scheduler.appointmentForm.getInvalidEditorsCount.call(scheduler), 1, "the only invalid editor is displayed in the form");
+
+        scheduler.appointmentForm.setSubject(validValue);
+        scheduler.appointmentPopup.saveAppointmentData().done(() => {
+            assert.notOk(scheduler.appointmentPopup.getPopupInstance().option("visible"), "the form is closed");
+
+            done();
+        });
+    });
+
+    assert.equal(scheduler.appointmentForm.getPendingEditorsCount.call(scheduler), 1, "the only pending editor is displayed in the form");
+});
+

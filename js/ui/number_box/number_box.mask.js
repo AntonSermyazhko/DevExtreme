@@ -194,13 +194,14 @@ var NumberBoxMask = NumberBoxBase.inherit({
         var enteredChar = this._lastKeyName === MINUS_KEY ? "" : this._lastKey,
             newValue = this._tryParse(normalizedText, caret, enteredChar);
 
+        if(this._shouldMoveCaret(normalizedText, caret)) {
+            this._moveCaret(1);
+            e.originalEvent.preventDefault();
+        }
+
         if(newValue === undefined) {
             if(this._lastKeyName !== MINUS_KEY) {
                 e.originalEvent.preventDefault();
-            }
-
-            if(this._shouldMoveCaret(normalizedText, caret)) {
-                this._moveCaret(1);
             }
         } else {
             this._parsedValue = newValue;
@@ -292,6 +293,16 @@ var NumberBoxMask = NumberBoxBase.inherit({
         var formatOption = this.option("format"),
             isCustomParser = typeUtils.isFunction(formatOption.parser),
             parser = isCustomParser ? formatOption.parser : number.parse;
+
+        var formatPointIndex = format.indexOf('.');
+        var textPointIndex = text.indexOf(number.getDecimalSeparator());
+
+        var formatIntegerPartLength = formatPointIndex !== -1 ? formatPointIndex : format.length;
+        var textIntegerPartLength = textPointIndex !== -1 ? textPointIndex : text.length;
+
+        if(textIntegerPartLength > formatIntegerPartLength && format.indexOf("#") === -1) {
+            text = text.substr(textIntegerPartLength - formatIntegerPartLength);
+        }
 
         return parser(text, format);
     },
@@ -721,13 +732,6 @@ var NumberBoxMask = NumberBoxBase.inherit({
             default:
                 this.callBase(args);
         }
-    },
-
-    _optionValuesEqual: function(name, oldValue, newValue) {
-        if(name === "value" && oldValue === 0 && newValue === 0) {
-            return (1 / oldValue) === (1 / newValue);
-        }
-        return this.callBase.apply(this, arguments);
     },
 
     _clearCache: function() {

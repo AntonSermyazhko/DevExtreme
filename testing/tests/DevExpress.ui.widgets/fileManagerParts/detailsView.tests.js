@@ -1,7 +1,7 @@
 import $ from "jquery";
 import "ui/file_manager";
 import fx from "animation/fx";
-import { Consts } from "../../../helpers/fileManagerHelpers.js";
+import { Consts, FileManagerWrapper, createTestFileSystem } from "../../../helpers/fileManagerHelpers.js";
 
 const { test } = QUnit;
 
@@ -46,6 +46,8 @@ const moduleConfig = {
                 }
             ]
         });
+
+        this.wrapper = new FileManagerWrapper(this.$element);
 
         this.clock.tick(400);
     },
@@ -176,6 +178,39 @@ QUnit.module("Details View", moduleConfig, () => {
         this.clock.tick(400);
 
         assert.equal(columnHeader.attr("aria-sort"), "none", "sorting default");
+    });
+
+    test("Details view must has ScrollView", function(assert) {
+        assert.ok(this.wrapper.getDetailsItemScrollable().length);
+    });
+
+    test("'Back' directory must not be sortable", function(assert) {
+        this.wrapper.getInstance().option({
+            fileProvider: createTestFileSystem(),
+            currentPath: "Folder 1",
+            itemView: {
+                showParentFolder: true
+            }
+        });
+        this.clock.tick(400);
+        const columnHeader = this.wrapper.getColumnHeaderInDetailsView(1);
+        columnHeader.trigger("dxclick");
+        this.clock.tick(400);
+
+        assert.equal(this.wrapper.getDetailsItemName(0), "..");
+        assert.equal(this.wrapper.getDetailsItemName(1), "File 1-1.txt");
+        assert.equal(this.wrapper.getDetailsItemName(2), "File 1-2.jpg");
+        assert.equal(this.wrapper.getDetailsItemName(3), "Folder 1.1");
+        assert.equal(this.wrapper.getDetailsItemName(4), "Folder 1.2", "sorted ascending, 'back' directory is on top");
+
+        columnHeader.trigger("dxclick");
+        this.clock.tick(400);
+
+        assert.equal(this.wrapper.getDetailsItemName(0), "..");
+        assert.equal(this.wrapper.getDetailsItemName(1), "Folder 1.2");
+        assert.equal(this.wrapper.getDetailsItemName(2), "Folder 1.1");
+        assert.equal(this.wrapper.getDetailsItemName(3), "File 1-2.jpg");
+        assert.equal(this.wrapper.getDetailsItemName(4), "File 1-1.txt", "sorted descending, 'back' directory is on top");
     });
 
 });

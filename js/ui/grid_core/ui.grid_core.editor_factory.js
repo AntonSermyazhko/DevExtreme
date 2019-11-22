@@ -9,6 +9,7 @@ import { addNamespace, fireEvent, normalizeKeyName } from "../../events/utils";
 import browser from "../../core/utils/browser";
 import { extend } from "../../core/utils/extend";
 import EditorFactoryMixin from "../shared/ui.editor_factory_mixin";
+import { isElementInCurrentGrid } from "./ui.grid_core.utils";
 
 var EDITOR_INLINE_BLOCK = "dx-editor-inline-block",
     CELL_FOCUS_DISABLED_CLASS = "dx-cell-focus-disabled",
@@ -80,7 +81,9 @@ var EditorFactory = modules.ViewController.inherit({
     },
 
     _updateFocusOverlaySize: function($element, position) {
-        var location = positionUtils.calculate($element, extend({ collision: "fit" }, position));
+        $element.hide();
+
+        const location = positionUtils.calculate($element, extend({ collision: "fit" }, position));
 
         if(location.h.oversize > 0) {
             $element.outerWidth($element.outerWidth() - location.h.oversize);
@@ -89,6 +92,8 @@ var EditorFactory = modules.ViewController.inherit({
         if(location.v.oversize > 0) {
             $element.outerHeight($element.outerHeight() - location.v.oversize);
         }
+
+        $element.show();
     },
 
     callbackNames: function() {
@@ -123,6 +128,10 @@ var EditorFactory = modules.ViewController.inherit({
     renderFocusOverlay: function($element, hideBorder) {
         var that = this,
             focusOverlayPosition;
+
+        if(!isElementInCurrentGrid(this, $element)) {
+            return;
+        }
 
         if(!that._$focusOverlay) {
             that._$focusOverlay = $("<div>").addClass(that.addWidgetPrefix(FOCUS_OVERLAY_CLASS) + " " + POINTER_EVENTS_TARGET_CLASS);

@@ -1,4 +1,3 @@
-import { inArray } from "core/utils/array";
 import { isDefined } from "core/utils/type";
 
 const { assert } = QUnit;
@@ -8,13 +7,18 @@ class ExcelJSTestHelper {
         this.worksheet = worksheet;
     }
 
-    checkCustomizeCell(eventArgs, expectedArgs, callIndex) {
+    checkCustomizeCell(eventArgs, expectedCells, callIndex) {
         const { gridCell, excelCell } = eventArgs;
-        const expectedAddress = expectedArgs[callIndex].excelCell;
+
+        const currentRowIndex = Math.floor(callIndex / expectedCells[0].length);
+        const currentCellIndex = callIndex % expectedCells[currentRowIndex].length;
+        const expectedCell = expectedCells[currentRowIndex][currentCellIndex];
+
+        const expectedAddress = expectedCell.excelCell.address;
 
         assert.strictEqual(this.worksheet.getRow(expectedAddress.row).getCell(expectedAddress.column).address, excelCell.address, `cell.address (${expectedAddress.row}, ${expectedAddress.column})`);
 
-        const expectedColumn = expectedArgs[callIndex].gridCell.column;
+        const expectedColumn = expectedCell.gridCell.column;
         const actualColumn = gridCell.column;
 
         assert.strictEqual(actualColumn.dataField, expectedColumn.dataField, `column.dataField, ${callIndex}`);
@@ -26,32 +30,32 @@ class ExcelJSTestHelper {
 
         for(const propertyName in gridCell) {
             if(gridCellSkipProperties.indexOf(propertyName) === -1) {
-                if(propertyName === "groupSummaryItems") {
-                    assert.deepEqual(gridCell[propertyName], expectedArgs[callIndex].gridCell[propertyName], `gridCell[${propertyName}], ${callIndex}`);
+                if(propertyName === "groupSummaryItems" || propertyName === "value") {
+                    assert.deepEqual(gridCell[propertyName], expectedCell.gridCell[propertyName], `gridCell[${propertyName}], ${callIndex}`);
                 } else {
-                    assert.strictEqual(gridCell[propertyName], expectedArgs[callIndex].gridCell[propertyName], `gridCell[${propertyName}], ${callIndex}`);
+                    assert.strictEqual(gridCell[propertyName], expectedCell.gridCell[propertyName], `gridCell[${propertyName}], ${callIndex}`);
                 }
             }
         }
     }
 
-    checkAutoFilter(excelFilterEnabled, from, to, frozenArea) {
-        if(excelFilterEnabled === true) {
-            assert.deepEqual(this.worksheet.autoFilter.from, from, "worksheet.autoFilter.from");
-            assert.deepEqual(this.worksheet.autoFilter.to, to, "worksheet.autoFilter.to");
-            assert.deepEqual(this.worksheet.views, [ { state: "frozen", ySplit: frozenArea.y } ], "worksheet.views");
+    checkAutoFilter(autoFilterEnabled, autoFilter, frozenState) {
+        assert.deepEqual(this.worksheet.views, frozenState ? [frozenState] : [], "worksheet.views");
+
+        if(autoFilterEnabled === true) {
+            assert.deepEqual(this.worksheet.autoFilter, autoFilter, "worksheet.autoFilter");
         } else {
-            assert.equal(this.worksheet.autoFilter, undefined, "worksheet.autoFilter");
+            assert.deepEqual(this.worksheet.autoFilter, null, "worksheet.autoFilter");
         }
     }
 
-    checkValues(expectedRows, topLeft) {
-        for(let rowIndex = 0; rowIndex < expectedRows.length; rowIndex++) {
-            for(let columnIndex = 0; columnIndex < expectedRows[rowIndex].values.length; columnIndex++) {
-                assert.equal(this.worksheet.getRow(topLeft.row + rowIndex).getCell(topLeft.column + columnIndex).value, expectedRows[rowIndex].values[columnIndex], `this.worksheet.getRow(${topLeft.row + rowIndex}).getCell(${topLeft.column + columnIndex}).value`);
-            }
-            assert.equal(this.worksheet.getRow(topLeft.row + rowIndex).outlineLevel, expectedRows[rowIndex].outlineLevel, `this.worksheet.getRow(${topLeft.row + rowIndex}).outlineLevel`);
-        }
+    checkValues(cellsArray) {
+        this._iterateCells(cellsArray, (cellArgs) => {
+            const { excelCell } = cellArgs;
+            const { row, column } = excelCell.address;
+
+            assert.deepEqual(this.worksheet.getCell(row, column).value, excelCell.value, `this.worksheet.getCell(${row}, ${column}).value`);
+        });
     }
 
     checkColumnWidths(expectedWidths, startColumnIndex) {
@@ -60,43 +64,107 @@ class ExcelJSTestHelper {
         }
     }
 
-    checkPredefinedFont(expectedCells) {
-        const rowTypes = ["header", "group", "groupFooter", "totalFooter"];
+    checkOutlineLevel(expectedOutlineLevelValues, startRowIndex) {
+        for(let i = 0; i < expectedOutlineLevelValues.length; i++) {
+            assert.equal(this.worksheet.getRow(startRowIndex + i).outlineLevel, expectedOutlineLevelValues[i], `worksheet.getRow(${i}).outlineLevel`);
+        }
+    }
 
-        expectedCells.forEach(expectedCell => {
-            const { gridCell, excelCell } = expectedCell;
+    checkFont(cellsArray) {
+        this._iterateCells(cellsArray, (cellArgs) => {
+            const { excelCell } = cellArgs;
+            const { row, column } = excelCell.address;
 
-            if(inArray(gridCell.rowType, rowTypes) !== -1 && isDefined(gridCell.value)) {
-                assert.deepEqual(this.worksheet.getCell(excelCell.row, excelCell.column).font, { bold: true }, `this.worksheet.getCell(${excelCell.row}, ${excelCell.column}).font`);
-            } else {
-                assert.deepEqual(this.worksheet.getCell(excelCell.row, excelCell.column).font, undefined, `this.worksheet.getCell(${excelCell.row}, ${excelCell.column}).font`);
+            assert.deepEqual(this.worksheet.getCell(row, column).font, excelCell.font, `this.worksheet.getCell(${row}, ${column}).font`);
+        });
+    }
+
+    checkAlignment(cellsArray) {
+        this._iterateCells(cellsArray, (cellArgs) => {
+            const { excelCell } = cellArgs;
+            const { row, column } = excelCell.address;
+
+            assert.deepEqual(this.worksheet.getCell(row, column).alignment, excelCell.alignment, `this.worksheet.getCell(${row}, ${column}).alignment`);
+        });
+    }
+
+    checkRowAndColumnCount(actual, total, topLeft) {
+        assert.equal(this.worksheet.actualRowCount, actual.row, "worksheet.actualRowCount");
+        assert.equal(this.worksheet.actualColumnCount, actual.column, "worksheet.actualColumnCount");
+        assert.equal(this.worksheet.rowCount, total.row === 0 ? total.row : topLeft.row + total.row - 1, "worksheet.rowCount");
+        assert.equal(this.worksheet.columnCount, total.column === 0 ? total.column : topLeft.column + total.column - 1, "worksheet.columnCount");
+    }
+
+    checkCellsRange(cellsRange, actual, topLeft) {
+        assert.deepEqual(cellsRange.from, topLeft, "cellsRange.from");
+        if(actual.row > 0 && actual.column > 0) {
+            assert.deepEqual(cellsRange.to, { row: topLeft.row + actual.row - 1, column: topLeft.column + actual.column - 1 }, "cellsRange.to");
+        } else {
+            assert.deepEqual(cellsRange.to, { row: topLeft.row + actual.row, column: topLeft.column + actual.column }, "cellsRange.to");
+        }
+    }
+
+    _extendExpectedCells(cellsArray, topLeft) {
+        this._iterateCells(cellsArray, (cellArgs, rowIndex, columnIndex) => {
+            cellArgs.excelCell.address = {
+                row: rowIndex + topLeft.row,
+                column: columnIndex + topLeft.column
+            };
+
+            if(!("value" in cellArgs.gridCell)) {
+                cellArgs.gridCell.value = cellArgs.excelCell.value;
             }
         });
     }
 
-    checkRowAndColumnCount(total, actual) {
-        assert.equal(this.worksheet.rowCount, total.row, "worksheet.rowCount");
-        assert.equal(this.worksheet.columnCount, total.column, "worksheet.columnCount");
-        assert.equal(this.worksheet.actualRowCount, actual.row, "worksheet.actualRowCount");
-        assert.equal(this.worksheet.actualColumnCount, actual.column, "worksheet.actualColumnCount");
-    }
+    _iterateCells(cellsArray, callback) {
+        for(let rowIndex = 0; rowIndex < cellsArray.length; rowIndex++) {
+            for(let columnIndex = 0; columnIndex < cellsArray[rowIndex].length; columnIndex++) {
+                let currentCell = cellsArray[rowIndex][columnIndex];
 
-    _extendExpectedCustomizeCellArgs(argsArray, expectedRows, topLeft) {
-        for(let rowIndex = 0; rowIndex < expectedRows.length; rowIndex++) {
-            const columnCount = expectedRows[rowIndex].values.length;
-
-            for(let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-                let args = argsArray[rowIndex * columnCount + columnIndex];
-
-                args.excelCell = {
-                    row: rowIndex + topLeft.row,
-                    column: columnIndex + topLeft.column,
-                };
-                if(!("value" in args.gridCell)) {
-                    args.gridCell.value = expectedRows[rowIndex].values[columnIndex];
-                }
+                callback(currentCell, rowIndex, columnIndex);
             }
         }
+    }
+
+    _iterateWorksheetCells(callback) {
+        this.worksheet.eachRow({ includeEmpty: true }, (row) => {
+            row.eachCell({ includeEmpty: true }, (cell) => {
+                callback(cell);
+            });
+        });
+    }
+
+    checkMergeCells(cellsArray, topLeft) {
+        this._iterateWorksheetCells((excelCell) => {
+            if(excelCell.col < topLeft.column) {
+                assert.strictEqual(excelCell.isMerged, false, `cell: ${excelCell.address}.isMerged`);
+                assert.strictEqual(excelCell.master, excelCell, `cell: ${excelCell.address}.master`);
+            } else {
+                const expectedExcelCell = cellsArray[excelCell.row - topLeft.row][excelCell.col - topLeft.column].excelCell;
+
+                if(!isDefined(expectedExcelCell.master)) {
+                    assert.strictEqual(excelCell.isMerged, false, `cell: ${excelCell.address}.isMerged`);
+                    assert.strictEqual(excelCell.master, excelCell, `cell: ${excelCell.address}.master`);
+                } else {
+                    const master = this.worksheet.getCell(expectedExcelCell.master[0] + topLeft.row - 1, expectedExcelCell.master[1] + topLeft.column - 1);
+
+                    assert.strictEqual(excelCell.isMerged, true, `cell: ${excelCell.address}.isMerged`);
+                    assert.strictEqual(excelCell.master, master, `cell: ${excelCell.address}.master`);
+                }
+            }
+        });
+    }
+
+    checkCellFormat(cellsArray) {
+        this._iterateCells(cellsArray, (cellArgs) => {
+            const { address, dataType, type, numberFormat } = cellArgs.excelCell;
+            const { row, column } = address;
+
+            assert.deepEqual(typeof this.worksheet.getCell(row, column).value, dataType, `typeof this.worksheet.getCell(${row}, ${column}).value`);
+            assert.deepEqual(this.worksheet.getCell(row, column).type, type, `this.worksheet.getCell(${row}, ${column}).type`);
+            assert.deepEqual(this.worksheet.getCell(row, column).numFmt, numberFormat, `this.worksheet.getCell(${row}, ${column}).numFmt`);
+        });
     }
 }
 

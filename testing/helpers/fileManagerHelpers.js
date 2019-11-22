@@ -10,6 +10,9 @@ export const Consts = {
     CONTAINER_CLASS: "dx-filemanager-container",
     DRAWER_PANEL_CONTENT_CLASS: "dx-drawer-panel-content",
     DRAWER_CONTENT_CLASS: "dx-drawer-content",
+    DIRS_PANEL_CLASS: "dx-filemanager-dirs-panel",
+    DIRS_TREE_CLASS: "dx-filemanager-dirs-tree",
+    ITEMS_VIEW_CLASS: "dx-filemanager-files-view",
     DIALOG_CLASS: "dx-filemanager-dialog",
     THUMBNAILS_ITEM_CLASS: "dx-filemanager-thumbnails-item",
     THUMBNAILS_ITEM_NAME_CLASS: "dx-filemanager-thumbnails-item-name",
@@ -18,11 +21,14 @@ export const Consts = {
     FOLDERS_TREE_VIEW_ITEM_CLASS: "dx-treeview-item",
     FOLDERS_TREE_VIEW_ITEM_TOGGLE_CLASS: "dx-treeview-toggle-item-visibility",
     BREADCRUMBS_CLASS: "dx-filemanager-breadcrumbs",
+    BREADCRUMBS_PARENT_DIRECOTRY_ITEM_CLASS: "dx-filemanager-breadcrumbs-parent-folder-item",
     ITEMS_GRID_VIEW_CLASS: "dx-filemanager-files-view",
     FOCUSED_ITEM_CLASS: "dx-filemanager-focused-item",
+    INACTIVE_AREA_CLASS: "dx-filemanager-inactive-area",
     CUSTOM_THUMBNAIL_CLASS: "dx-filemanager-item-custom-thumbnail",
     TOOLBAR_SEPARATOR_ITEM: "dx-filemanager-toolbar-separator-item",
     DETAILS_ITEM_NAME_CLASS: "dx-filemanager-details-item-name",
+    POPUP_NORMAL_CLASS: "dx-popup-normal",
     POPUP_BOTTOM_CLASS: "dx-popup-bottom",
     BUTTON_CLASS: "dx-button",
     BUTTON_TEXT_CLASS: "dx-button-text",
@@ -40,7 +46,8 @@ export const Consts = {
     DROPDOWN_MENU_BUTTON_CLASS: "dx-dropdownmenu-button",
     DROPDOWN_MENU_LIST_CLASS: "dx-dropdownmenu-list",
     DROPDOWN_MENU_CONTENT_CLASS: "dx-scrollview-content",
-    DROPDOWN_MENU_LIST_ITEM_CLASS: "dx-list-item"
+    DROPDOWN_MENU_LIST_ITEM_CLASS: "dx-list-item",
+    SCROLLABLE_ClASS: "dx-scrollable"
 };
 const showMoreButtonText = "\u22EE";
 
@@ -52,6 +59,18 @@ export class FileManagerWrapper {
 
     getInstance() {
         return this._$element.dxFileManager("instance");
+    }
+
+    getDirsPanel() {
+        return this._$element.find(`.${Consts.DIRS_PANEL_CLASS}`);
+    }
+
+    getDirsTree() {
+        return this.getDirsPanel().find(` .${Consts.DIRS_TREE_CLASS}`);
+    }
+
+    getItemsView() {
+        return this._$element.find(`.${Consts.ITEMS_VIEW_CLASS}`);
     }
 
     getFolderNodes(inDialog) {
@@ -90,14 +109,24 @@ export class FileManagerWrapper {
         return this._findActionButton($folderNode);
     }
 
+    getBreadcrumbsWrapper() {
+        return new FileManagerBreadcrumbsWrapper(this._$element.find(`.${Consts.BREADCRUMBS_CLASS}`));
+    }
+
     getBreadcrumbsPath() {
-        let result = "";
-        const $elements = this._$element.find(`.${Consts.BREADCRUMBS_CLASS} .${Consts.MENU_ITEM_WITH_TEXT_CLASS}`);
-        $elements.each((_, element) => {
-            const name = $(element).text();
-            result = result ? `${result}/${name}` : name;
-        });
-        return result;
+        return this.getBreadcrumbsWrapper().getPath();
+    }
+
+    getBreadcrumbsItems() {
+        return this.getBreadcrumbsWrapper().getItems();
+    }
+
+    getBreadcrumbsItemByText(text) {
+        return this.getBreadcrumbsWrapper().getItemByText(text);
+    }
+
+    getBreadcrumbsParentDirectoryItem() {
+        return this.getBreadcrumbsWrapper().getParentDirectoryItem();
     }
 
     getToolbar() {
@@ -129,6 +158,10 @@ export class FileManagerWrapper {
         return $(`.${Consts.DROPDOWN_MENU_LIST_CLASS} .${Consts.DROPDOWN_MENU_CONTENT_CLASS} .${Consts.DROPDOWN_MENU_LIST_ITEM_CLASS}`)[childIndex];
     }
 
+    getToolbarViewSwitcherListItem(childIndex) {
+        return $(`.${Consts.POPUP_NORMAL_CLASS} .${Consts.DROPDOWN_MENU_CONTENT_CLASS} .${Consts.DROPDOWN_MENU_LIST_ITEM_CLASS}`)[childIndex];
+    }
+
     getCustomThumbnails() {
         return this._$element.find(`.${Consts.CUSTOM_THUMBNAIL_CLASS}`);
     }
@@ -153,6 +186,10 @@ export class FileManagerWrapper {
         return this._$element.find(`.${Consts.GRID_DATA_ROW_CLASS} > td:contains('${itemName}')`);
     }
 
+    getDetailsItemScrollable() {
+        return this.getDetailsItemList().find(`.${Consts.SCROLLABLE_ClASS}`);
+    }
+
     getDetailsItemName(index) {
         return this._$element.find(`.${Consts.DETAILS_ITEM_NAME_CLASS}`).eq(index).text();
     }
@@ -170,8 +207,20 @@ export class FileManagerWrapper {
         return this.getRowInDetailsView(index).find("td").eq(1);
     }
 
+    getRowsInDetailsView() {
+        return this._$element.find(`.${Consts.GRID_DATA_ROW_CLASS}`);
+    }
+
     getRowInDetailsView(index) {
         return this._$element.find(`.${Consts.GRID_DATA_ROW_CLASS}[aria-rowindex=${index}]`);
+    }
+
+    getColumnCellsInDetailsView(index) {
+        return this._$element.find(`.${Consts.GRID_DATA_ROW_CLASS} > td:nth-child(${index})`);
+    }
+
+    getColumnHeaderInDetailsView(index) {
+        return this._$element.find("[id*=dx-col]").eq(index);
     }
 
     getContextMenuItems(visible) {
@@ -198,7 +247,7 @@ export class FileManagerWrapper {
         return this._$element.find(`.${Consts.CONTAINER_CLASS} .${Consts.DRAWER_PANEL_CONTENT_CLASS}`);
     }
 
-    getItemsView() {
+    getItemsPanel() {
         return this._$element.find(`.${Consts.CONTAINER_CLASS} .${Consts.DRAWER_CONTENT_CLASS}`);
     }
 
@@ -248,6 +297,10 @@ export class FileManagerProgressPanelWrapper {
             .find(".dx-filemanager-progress-panel-infos-container > .dx-filemanager-progress-panel-info")
             .map((_, info) => new FileManagerProgressPanelInfoWrapper($(info)))
             .get();
+    }
+
+    getSeparators() {
+        return this._$element.find(".dx-filemanager-progress-panel-infos-container > .dx-filemanager-progress-panel-separator");
     }
 
     findProgressBoxes($container) {
@@ -351,6 +404,39 @@ export class FileManagerProgressPanelProgressBoxWrapper {
 
 }
 
+export class FileManagerBreadcrumbsWrapper {
+
+    constructor($element) {
+        this._$element = $element;
+    }
+
+    getItems() {
+        return this._$element.find(`.${Consts.MENU_ITEM_WITH_TEXT_CLASS}`);
+    }
+
+    getItemByText(text) {
+        return this.getItems().filter(function() {
+            const content = $(this).text();
+            return content === text;
+        }).first();
+    }
+
+    getPath() {
+        let result = "";
+        const $elements = this.getItems();
+        $elements.each((_, element) => {
+            const name = $(element).text();
+            result = result ? `${result}/${name}` : name;
+        });
+        return result;
+    }
+
+    getParentDirectoryItem() {
+        return this._$element.find(`.${Consts.BREADCRUMBS_PARENT_DIRECOTRY_ITEM_CLASS}`);
+    }
+
+}
+
 export const stringify = obj => {
     if(Array.isArray(obj)) {
         const content = obj
@@ -380,6 +466,29 @@ export const createTestFileSystem = () => {
                     name: "Folder 1.1",
                     isDirectory: true,
                     items: [
+                        {
+                            name: "Folder 1.1.1",
+                            isDirectory: true,
+                            items: [
+                                {
+                                    name: "Folder 1.1.1.1",
+                                    isDirectory: true,
+                                    items: [
+                                        {
+                                            name: "Folder 1.1.1.1.1",
+                                            isDirectory: true,
+                                            items: [
+                                                {
+                                                    name: "Special deep file.txt",
+                                                    isDirectory: false,
+                                                    size: 600
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
                         {
                             name: "File 1-1.txt",
                             isDirectory: false

@@ -17,11 +17,10 @@ import {
     setupModules,
     triggerKeyDown,
     focusCell,
-    callViewsRenderCompleted } from "../../../helpers/grid/keyboardNavigationHelper.js";
-import { DataGridWrapper } from "../../../helpers/wrappers/dataGridWrappers.js";
+    callViewsRenderCompleted,
+    dataGridWrapper } from "../../../helpers/grid/keyboardNavigationHelper.js";
 
 const device = devices.real();
-const dataGridWrapper = new DataGridWrapper("#container");
 
 function generateItems(itemCount) {
     var items = [];
@@ -1155,6 +1154,27 @@ QUnit.module("Keyboard keys", {
         }
     });
 
+    QUnit.test("DataGrid - Should not generate exception if handle not valid cell by tab key press (T817348)", function(assert) {
+        // arrange
+        setupModules(
+            this,
+            { initViews: true },
+            ["adaptivity"]
+        );
+
+        this.gridView.render($('#container'));
+
+        try {
+            // act
+            this.triggerKeyDown("tab", false, false, dataGridWrapper.rowsView.getElement());
+        } catch(e) {
+            // assert
+            assert.ok(false, e.message);
+        }
+
+        assert.ok(true, "No exceptions if focus not cell element by tab");
+    });
+
     // T448310
     QUnit.testInActiveWindow("Navigation using tab inside edit form in the first row", function(assert) {
         // arrange
@@ -1590,6 +1610,28 @@ QUnit.module("Keyboard keys", {
         assert.ok(isLeftArrow, "default behaviour is worked");
     });
 
+    QUnit.test("onKeyDown event customization (T824764)", function(assert) {
+        // arrange
+        this.options = {
+            onKeyDown: function(e) {
+                e.event.ctrlKey = false;
+                e.event.altKey = false;
+                e.event.shiftKey = false;
+            }
+        };
+        setupModules(this);
+        this.gridView.render($("#container"));
+        this.clock.tick();
+
+        // act
+        $(this.getCellElement(0, 1)).trigger(CLICK_EVENT);
+        this.triggerKeyDown("ArrowDown", true, true, true);
+
+        // assert
+        const cellPosition = this.keyboardNavigationController._focusedCellPosition;
+        assert.deepEqual(cellPosition, { rowIndex: 1, columnIndex: 1 }, "Cell was navigate by default key handler");
+    });
+
     QUnit.test("Get a valid index of cell on tab key_T259896", function(assert) {
         this.options = {
             editing: {
@@ -1999,7 +2041,7 @@ QUnit.module("Keyboard keys", {
         this.clock.tick();
 
         // arrange
-        $input = dataGridWrapper.rowsView.getEditorInputElement(0, 0);
+        $input = dataGridWrapper.rowsView.getEditorInput(0, 0);
 
         // assert
         assert.ok($input.is(":focus"), "input is focused");

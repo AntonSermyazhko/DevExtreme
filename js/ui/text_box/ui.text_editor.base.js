@@ -660,10 +660,14 @@ const TextEditorBase = Editor.inherit({
         e.stopPropagation();
 
         this._saveValueChangeEvent(e);
-        this.reset();
+        this._clearValue();
 
         !this._isFocused() && eventsEngine.trigger($input, "focus");
         eventsEngine.trigger($input, "input");
+    },
+
+    _clearValue: function() {
+        this.reset();
     },
 
     _renderEvents: function() {
@@ -947,7 +951,12 @@ const TextEditorBase = Editor.inherit({
     },
 
     reset: function() {
-        var defaultOptions = this._getDefaultOptions();
+        if(this._showValidMark) {
+            this._showValidMark = false;
+            this._renderValidationState();
+        }
+
+        const defaultOptions = this._getDefaultOptions();
         if(this.option("value") === defaultOptions.value) {
             this.option("text", "");
             this._renderValue();

@@ -9,9 +9,11 @@ QUnit.testStart(() => {
 });
 
 const TREELIST_SELECTOR = ".dx-treelist",
+    TREELIST_DATA_ROW_SELECTOR = ".dx-data-row",
     TREELIST_WRAPPER_SELECTOR = ".dx-gantt-treelist-wrapper",
     TREELIST_HEADER_ROW_SELECTOR = ".dx-header-row",
     GANTT_VIEW_SELECTOR = ".dx-gantt-view",
+    GANTT_VIEW_ROW_SELECTOR = ".dx-gantt-altRow",
     TASK_WRAPPER_SELECTOR = ".dx-gantt-taskWrapper",
     TASK_RESOURCES_SELECTOR = ".dx-gantt-taskRes",
     TASK_ARROW_SELECTOR = ".dx-gantt-arrow",
@@ -24,6 +26,8 @@ const TREELIST_SELECTOR = ".dx-treelist",
     SPLITTER_SELECTOR = ".dx-splitter",
     POPUP_SELECTOR = ".dx-popup-normal",
     GANTT_VIEW_HORIZONTAL_BORDER_SELECTOR = ".dx-gantt-hb",
+    OVERLAY_WRAPPER_SELECTOR = ".dx-overlay-wrapper",
+    CONTEXT_MENU_SELECTOR = ".dx-context-menu",
     INPUT_TEXT_EDITOR_SELECTOR = ".dx-texteditor-input";
 
 
@@ -112,6 +116,13 @@ QUnit.module("Markup", moduleConfig, () => {
         const element = this.$element.find(TASK_RESOURCES_SELECTOR);
         assert.equal(element.length, resourceAssignments.length);
     });
+    test("row heights", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.clock.tick();
+        const treeListRowElement = this.$element.find(TREELIST_DATA_ROW_SELECTOR).last().get(0);
+        const ganttViewRowElement = this.$element.find(GANTT_VIEW_ROW_SELECTOR).get(0);
+        assert.equal(treeListRowElement.getBoundingClientRect().height, ganttViewRowElement.getBoundingClientRect().height, "row heights are equal");
+    });
 });
 
 QUnit.module("Options", moduleConfig, () => {
@@ -183,7 +194,8 @@ QUnit.module("Options", moduleConfig, () => {
                 keyExpr: "i",
                 taskIdExpr: "tid",
                 resourceIdExpr: "rid"
-            }
+            },
+            columns: ["t"]
         };
         this.createInstance(options);
         this.clock.tick();
@@ -193,6 +205,8 @@ QUnit.module("Options", moduleConfig, () => {
         assert.equal(firstTitle, tasksDS[0].t);
         const firstProgressElement = taskWrapperElements.first().children().children().last();
         assert.ok(firstProgressElement.width() > 0);
+        const $firstTreeListRowText = this.$element.find(TREELIST_DATA_ROW_SELECTOR).first().find(".dx-treelist-text-content").first().text();
+        assert.equal($firstTreeListRowText, tasksDS[0].t, "treeList has title text");
 
         const dependencyElements = this.$element.find(TASK_ARROW_SELECTOR);
         assert.equal(dependencyElements.length, dependenciesDS.length);
@@ -345,10 +359,23 @@ QUnit.module("Events", moduleConfig, () => {
         this.clock.tick();
         assert.equal(keyFromEvent, key);
     });
+    test("onContentReady", (assert) => {
+        const onContentReadyHandler = sinon.stub();
+        const options = {
+            tasks: {
+                dataSource: tasks
+            },
+            onContentReady: onContentReadyHandler
+        };
+        this.createInstance(options);
+        this.clock.tick();
+
+        assert.equal(onContentReadyHandler.callCount, 1, "onContentReadyHandler was called 1 times");
+    });
 });
 
 QUnit.module("Actions", moduleConfig, () => {
-    test("expand/collapse", (assert) => {
+    test("expand", (assert) => {
         this.createInstance(allSourcesOptions);
         this.clock.tick();
         assert.equal(this.$element.find(TASK_WRAPPER_SELECTOR).length, tasks.length);
@@ -356,6 +383,11 @@ QUnit.module("Actions", moduleConfig, () => {
         expandedElement.trigger("dxclick");
         this.clock.tick();
         assert.equal(this.$element.find(TASK_WRAPPER_SELECTOR).length, 1);
+    });
+    test("collapse", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.clock.tick();
+        assert.equal(this.$element.find(TASK_WRAPPER_SELECTOR).length, tasks.length);
         const collapsedElement = this.$element.find(TREELIST_COLLAPSED_SELECTOR).first();
         collapsedElement.trigger("dxclick");
         this.clock.tick();
@@ -442,17 +474,18 @@ QUnit.module("Dialogs", moduleConfig, () => {
     });
     test("task editing", (assert) => {
         this.createInstance(allSourcesOptions);
+        this.instance.option("editing.enabled", true);
         this.clock.tick();
         showTaskEditDialog(this.instance);
         this.clock.tick();
-        const $dialog = $("body").find(POPUP_SELECTOR);
+        let $dialog = $("body").find(POPUP_SELECTOR);
         assert.equal($dialog.length, 1, "dialog is shown");
 
         const $inputs = $dialog.find(INPUT_TEXT_EDITOR_SELECTOR);
         assert.equal($inputs.eq(0).val(), tasks[0].title, "title text is shown");
         assert.equal((new Date($inputs.eq(1).val())).getTime(), tasks[0].start.getTime(), "start task text is shown");
         assert.equal((new Date($inputs.eq(2).val())).getTime(), tasks[0].end.getTime(), "end task text is shown");
-        assert.equal($inputs.eq(3).val(), tasks[0].progress, "progress text is shown");
+        assert.equal($inputs.eq(3).val(), tasks[0].progress + "%", "progress text is shown");
 
         const testTitle = "text";
         const titleTextBox = $dialog.find(".dx-textbox").eq(0).dxTextBox("instance");
@@ -463,6 +496,13 @@ QUnit.module("Dialogs", moduleConfig, () => {
         const $taskWrapper = this.$element.find(TASK_WRAPPER_SELECTOR).eq(0);
         const firstTitle = $taskWrapper.children().children().first().text();
         assert.equal(firstTitle, testTitle, "title text was modified");
+
+        this.instance.option("editing.enabled", false);
+        showTaskEditDialog(this.instance);
+        assert.equal($dialog.find(".dx-popup-bottom").find(".dx-button").length, 1, "only cancel button in toolbar");
+        $dialog = $("body").find(POPUP_SELECTOR);
+        const inputs = $dialog.find(".dx-texteditor-input");
+        assert.equal(inputs.attr("readOnly"), "readonly", "all inputs is readOnly");
     });
     test("resources editing", (assert) => {
         this.createInstance(allSourcesOptions);
@@ -481,6 +521,8 @@ QUnit.module("Dialogs", moduleConfig, () => {
         $resources = $dialog.find(".dx-list-item");
         assert.equal($resources.length, resources.length - 1, "first resource removed from list");
 
+        const secondResourceText = resources[1].text;
+        const thirdResourceText = resources[2].text;
         const newResourceText = "newResource";
         const textBox = $dialog.find(".dx-textbox").eq(0).dxTextBox("instance");
         textBox.option("text", newResourceText);
@@ -493,9 +535,85 @@ QUnit.module("Dialogs", moduleConfig, () => {
         const $okButton = $dialog.find(".dx-popup-bottom").find(".dx-button").eq(0);
         $okButton.trigger("dxclick");
         this.clock.tick();
-        const modelResources = getGanttViewCore(this.instance).viewModel.resources.items;
-        assert.equal(modelResources[0].text, resources[1].text, "first resource removed from model");
-        assert.equal(modelResources[1].text, resources[2].text, "second resource moved");
-        assert.equal(modelResources[2].text, newResourceText, "new resource added");
+        assert.equal(resources[0].text, secondResourceText, "first resource removed from ds");
+        assert.equal(resources[1].text, thirdResourceText, "second resource ds");
+        assert.equal(resources[2].text, newResourceText, "new resource ds");
+    });
+});
+
+QUnit.module("DataSources", moduleConfig, () => {
+    test("inserting", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.instance.option("editing.enabled", true);
+        this.clock.tick();
+
+        const tasksCount = tasks.length;
+        const newStart = new Date("2019-02-21");
+        const newEnd = new Date("2019-02-22");
+        const newTitle = "New";
+        getGanttViewCore(this.instance).commandManager.createTaskCommand.execute(newStart, newEnd, newTitle, "1");
+        this.clock.tick();
+        assert.equal(tasks.length, tasksCount + 1, "new task was created in ds");
+        const createdTask = tasks[tasks.length - 1];
+        assert.equal(createdTask.title, newTitle, "new task title is right");
+        assert.equal(createdTask.start, newStart, "new task start is right");
+        assert.equal(createdTask.end, newEnd, "new task end is right");
+    });
+    test("updating", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.instance.option("editing.enabled", true);
+        this.clock.tick();
+
+        const updatedTaskId = 3;
+        const updatedStart = new Date("2019-02-21");
+        const updatedEnd = new Date("2019-02-22");
+        const updatedTitle = "New";
+        getGanttViewCore(this.instance).commandManager.changeTaskTitleCommand.execute(updatedTaskId.toString(), updatedTitle);
+        getGanttViewCore(this.instance).commandManager.changeTaskStartCommand.execute(updatedTaskId.toString(), updatedStart);
+        getGanttViewCore(this.instance).commandManager.changeTaskEndCommand.execute(updatedTaskId.toString(), updatedEnd);
+        this.clock.tick();
+        const updatedTask = tasks.filter((t) => t.id === updatedTaskId)[0];
+        assert.equal(updatedTask.title, updatedTitle, "task title is updated");
+        assert.equal(updatedTask.start, updatedStart, "new task start is updated");
+        assert.equal(updatedTask.end, updatedEnd, "new task end is updated");
+    });
+    test("removing", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.instance.option("editing.enabled", true);
+        this.clock.tick();
+
+        const removedTaskId = 3;
+        const tasksCount = tasks.length;
+        getGanttViewCore(this.instance).commandManager.removeTaskCommand.execute(removedTaskId.toString());
+        this.clock.tick();
+        assert.equal(tasks.length, tasksCount - 1, "tasks less");
+        const removedTask = tasks.filter((t) => t.id === removedTaskId)[0];
+        assert.equal(removedTask, undefined, "task was removed");
+    });
+});
+
+QUnit.module("Context Menu", moduleConfig, () => {
+    test("showing", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.clock.tick();
+
+        const getContextMenuElement = () => {
+            return $("body").find(OVERLAY_WRAPPER_SELECTOR).find(CONTEXT_MENU_SELECTOR);
+        };
+        assert.equal(getContextMenuElement().length, 0, "menu is hidden on create");
+        this.instance._showPopupMenu({ position: { x: 0, y: 0 } });
+        assert.equal(getContextMenuElement().length, 1, "menu is visible after right click");
+    });
+    test("tree list context menu", (assert) => {
+        this.createInstance(allSourcesOptions);
+        this.clock.tick();
+
+        const getContextMenuElement = () => {
+            return $("body").find(OVERLAY_WRAPPER_SELECTOR).find(CONTEXT_MENU_SELECTOR);
+        };
+        assert.equal(getContextMenuElement().length, 0, "menu is hidden on create");
+        var $cellElement = $(this.instance._treeList.getCellElement(0, 0));
+        $cellElement.trigger("contextmenu");
+        assert.equal(getContextMenuElement().length, 2, "menu is visible after right click in tree list");
     });
 });

@@ -4,6 +4,7 @@ import eventsEngine from "events/core/events_engine";
 import keyboardMock from "../../helpers/keyboardMock.js";
 import pointerEvents from "events/pointer";
 import { Deferred } from "core/utils/deferred";
+import dataUtils from "core/element_data";
 
 QUnit.testStart(function() {
     var markup =
@@ -18,8 +19,8 @@ QUnit.testStart(function() {
     }\
 </style>\
 <div>\
-    <div class="dx-datagrid">\
-        <div id="container"></div>\
+    <div id="container">\
+        <div class="dx-datagrid">\
     </div>\
 </div>';
 
@@ -43,8 +44,10 @@ import commonUtils from "core/utils/common";
 import config from "core/config";
 import errors from "ui/widget/ui.errors";
 import devices from "core/devices";
+import DataGridWrapper from "../../helpers/wrappers/dataGridWrappers.js";
 
 const device = devices.real();
+const dataGridWrapper = new DataGridWrapper("#container");
 
 function getInputElements($container) {
     return $container.find("input:not([type='hidden'])");
@@ -54,6 +57,9 @@ $('body').addClass('dx-viewport');
 
 QUnit.module('Editing', {
     beforeEach: function() {
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.dataControllerOptions = {
             items: [
                 { key: 'test1', data: { name: 'test1', id: 1, date: new Date(2001, 0, 1), isTested: true, isTested2: true }, values: ['test1', 1, new Date(2001, 0, 1), true, true], rowType: 'data' },
@@ -1702,24 +1708,24 @@ QUnit.test('Not close Editing Cell in batch mode on down in editing cell and up 
     // arrange
     var that = this,
         rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsViewWrapper = dataGridWrapper.rowsView;
 
     that.options.editing = {
         allowUpdating: true,
         mode: 'batch'
     };
 
-    rowsView.render(testElement);
-    testElement.find('tbody > tr').first().find('td').eq(2).trigger('dxclick'); // Edit
+    rowsView.render($('#container'));
+    rowsViewWrapper.getCellElement(0, 2).trigger('dxclick'); // Edit
     this.clock.tick();
 
     // act
-    testElement.find('tbody > tr').first().find('td').eq(2).trigger('dxpointerdown');
-    testElement.find('tbody').first().trigger('dxclick'); // chrome 73+
+    rowsViewWrapper.getEditorInput(0, 2).trigger('dxpointerdown');
+    rowsViewWrapper.getElement().find('tbody').first().trigger('dxclick'); // chrome 73+
     this.clock.tick();
 
     // assert
-    assert.equal(getInputElements(testElement.find('tbody > tr').first()).length, 1, 'editor is not closed');
+    assert.equal(rowsViewWrapper.getEditorInput(0, 2).length, 1, 'editor is not closed');
 });
 
 // T318313
@@ -1797,22 +1803,18 @@ QUnit.test('Not close Editing Cell in batch mode on click detached element', fun
 QUnit.testInActiveWindow('Not close Editing Cell in batch mode on click focus overlay', function(assert) {
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.options.editing = {
         allowUpdating: true,
         mode: 'batch'
     };
 
-    rowsView.render(testElement);
-    that.$element = function() {
-        return testElement;
-    };
-    testElement.find('tbody > tr').first().find('td').eq(2).trigger('dxclick'); // Edit
+    rowsView.render(that.gridContainer);
+    that.gridContainer.find('tbody > tr').first().find('td').eq(2).trigger('dxclick'); // Edit
 
     this.clock.tick();
-    var $focusOverlay = testElement.find('.dx-datagrid-focus-overlay');
+    var $focusOverlay = that.gridContainer.find('.dx-datagrid-focus-overlay');
     assert.equal($focusOverlay.length, 1, 'focus overlay count');
 
     // act
@@ -1821,7 +1823,7 @@ QUnit.testInActiveWindow('Not close Editing Cell in batch mode on click focus ov
     this.clock.tick();
 
     // assert
-    assert.equal(getInputElements(testElement.find('tbody > tr').first()).length, 1, 'editor count');
+    assert.equal(getInputElements(that.gridContainer.find('tbody > tr').first()).length, 1, 'editor count');
     assert.equal($(".dx-datagrid-focus-overlay").length, 1, 'focus overlay count');
 });
 
@@ -2775,7 +2777,6 @@ QUnit.test("Batch mode - The allowUpdating callback should not be called on clic
     // arrange
     var that = this,
         rowsView = this.rowsView,
-        $testElement = $("#container"),
         allowUpdating = sinon.spy();
 
     that.options.editing = {
@@ -2783,11 +2784,11 @@ QUnit.test("Batch mode - The allowUpdating callback should not be called on clic
         mode: "batch",
         startEditAction: "dblClick"
     };
-    rowsView.render($testElement);
+    rowsView.render(that.gridContainer);
     allowUpdating.reset();
 
     // act
-    $testElement.find("td").first().trigger("click");
+    that.gridContainer.find("td").first().trigger("click");
 
     // assert
     assert.strictEqual(allowUpdating.callCount, 0, "allowUpdating isn't called");
@@ -2796,6 +2797,10 @@ QUnit.test("Batch mode - The allowUpdating callback should not be called on clic
 QUnit.module('Editing with real dataController', {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
+
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.array = [
             { name: 'Alex', age: 15, lastName: "John", phone: "555555", room: 1, stateId: 0, state: { name: "state 1" } },
             { name: 'Dan', age: 16, lastName: "Skip", phone: "553355", room: 2, stateId: 1, state: { name: "state 2" } },
@@ -3956,8 +3961,7 @@ QUnit.testInActiveWindow('Insert Row after scrolling', function(assert) {
         done = assert.async(),
         headerPanel = this.headerPanel,
         rowsView = this.rowsView,
-        headerPanelElement,
-        testElement = $('#container');
+        headerPanelElement;
 
     that.options.editing = {
         allowAdding: true,
@@ -3967,12 +3971,12 @@ QUnit.testInActiveWindow('Insert Row after scrolling', function(assert) {
         }
     };
 
-    headerPanel.render(testElement);
-    rowsView.render(testElement);
+    headerPanel.render(that.gridContainer);
+    rowsView.render(that.gridContainer);
     rowsView.height(10);
     rowsView.resize();
 
-    headerPanelElement = testElement.find('.dx-datagrid-header-panel').first();
+    headerPanelElement = that.gridContainer.find('.dx-datagrid-header-panel').first();
 
     rowsView.scrollChanged.add(function() {
         // act
@@ -3980,16 +3984,16 @@ QUnit.testInActiveWindow('Insert Row after scrolling', function(assert) {
 
         // assert
         assert.strictEqual(rowsView.getTopVisibleItemIndex(), 1);
-        assert.equal(getInputElements(testElement.find('tbody > tr').eq(1)).length, 4);
+        assert.equal(getInputElements(that.gridContainer.find('tbody > tr').eq(1)).length, 4);
 
         // act
-        testElement.find('input').first().val('Test');
-        testElement.find('input').first().trigger('change');
+        that.gridContainer.find('input').first().val('Test');
+        that.gridContainer.find('input').first().trigger('change');
 
-        that.click(testElement.find('tbody > tr').eq(1), '.dx-link:contains(Save)');
+        that.click(that.gridContainer.find('tbody > tr').eq(1), '.dx-link:contains(Save)');
 
         // assert
-        assert.equal(getInputElements(testElement).length, 0, 'inputs count');
+        assert.equal(getInputElements(that.gridContainer).length, 0, 'inputs count');
         assert.equal(that.array.length, 8, 'items count');
         delete that.array[7].__KEY__;
         assert.deepEqual(that.array[7], { name: 'Test' }, 'added item');
@@ -5322,6 +5326,44 @@ QUnit.test("When select all items row with modified cell must have 'dx-selection
     assert.ok($rows.eq(1).hasClass(rowSelectionClass), 'row has selection class');
 });
 
+// T716667
+QUnit.test("Editing cell should not be closed on click if column is fixed to right", function(assert) {
+    // arrange
+    var that = this,
+        rowsView = this.rowsView,
+        testElement = $("#container");
+
+    that.options.editing = {
+        allowUpdating: true,
+        mode: "cell"
+    };
+
+    that.options.columns = [{
+        dataField: "name",
+        fixed: true,
+        fixedPosition: "right"
+    }, {
+        dataField: "age",
+        allowEditing: false
+    }, {
+        dataField: "lastName",
+        allowEditing: false
+    }];
+
+    that.columnsController.optionChanged({ name: "columns", fullName: "columns" });
+
+    rowsView.render(testElement);
+    this.editCell(0, 2);
+
+    // act
+    $(this.getCellElement(0, 2)).trigger("dxpointerdown").trigger("dxclick");
+
+    // assert
+    assert.strictEqual(this.getVisibleColumns()[2].fixed, true, "third column is fixed");
+    assert.strictEqual(getInputElements($(this.getCellElement(0, 2))).length, 1, "Editor exists");
+    assert.ok(this.editingController.isEditing(), "editing is not canceled");
+});
+
 // B255559
 QUnit.test("Selection don't working for a inserted row", function(assert) {
     // arrange
@@ -5802,31 +5844,27 @@ QUnit.test("isEditing parameter of the cell when edit mode is 'batch'", function
 QUnit.testInActiveWindow('Hide focus overlay before update on editing cell', function(assert) {
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.options.editing = {
         allowEditing: true,
         mode: 'batch'
     };
-    rowsView.render(testElement);
-    that.$element = function() {
-        return testElement;
-    };
+    rowsView.render(that.gridContainer);
 
     that.editCell(0, 0);
     that.clock.tick();
 
     // assert
-    assert.ok(testElement.find('.dx-datagrid-focus-overlay').is(":visible"), 'visible focus overlay');
+    assert.ok(that.gridContainer.find('.dx-datagrid-focus-overlay').is(":visible"), 'visible focus overlay');
 
     // act
     that.editCell(0, 1);
 
     // assert
-    assert.ok(!testElement.find('.dx-datagrid-focus-overlay').is(":visible"), 'not visible focus overlay');
+    assert.ok(!that.gridContainer.find('.dx-datagrid-focus-overlay').is(":visible"), 'not visible focus overlay');
     that.clock.tick();
-    assert.ok(testElement.find('.dx-datagrid-focus-overlay').is(":visible"), 'visible focus overlay');
+    assert.ok(that.gridContainer.find('.dx-datagrid-focus-overlay').is(":visible"), 'visible focus overlay');
 });
 
 QUnit.test("Get first editable column index when form edit mode", function(assert) {
@@ -6555,8 +6593,7 @@ if(device.ios || device.android) {
 QUnit.testInActiveWindow("Focused cell when editing cell in batch mode", function(assert) {
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.options.scrolling = {
         useNative: false
@@ -6567,24 +6604,21 @@ QUnit.testInActiveWindow("Focused cell when editing cell in batch mode", functio
         mode: 'batch'
     };
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
     that.columnsController.init();
-    that.$element = function() {
-        return testElement;
-    };
 
     // act
-    testElement.find('tbody > tr').first().find("td").first().trigger('dxclick'); // Edit
+    that.gridContainer.find('tbody > tr').first().find("td").first().trigger('dxclick'); // Edit
     that.clock.tick();
 
     // assert
-    var $focusOverlay = testElement.find('.dx-datagrid-focus-overlay');
+    var $focusOverlay = that.gridContainer.find('.dx-datagrid-focus-overlay');
     assert.equal($focusOverlay.length, 1, 'focus overlay count');
 
-    assert.equal(testElement.find('tbody > tr').first().find("td").first().outerWidth(), browser.mozilla ? $focusOverlay.outerWidth() : $focusOverlay.outerWidth() - 1, 'width focus overlay');
+    assert.equal(that.gridContainer.find('tbody > tr').first().find("td").first().outerWidth(), browser.mozilla ? $focusOverlay.outerWidth() : $focusOverlay.outerWidth() - 1, 'width focus overlay');
 
     // T192066
-    var $editor = testElement.find('tbody > tr').first().find('td.dx-focused');
+    var $editor = that.gridContainer.find('tbody > tr').first().find('td.dx-focused');
 
     assert.ok($editor.length, 'focused cell');
     assert.ok($editor.find(".dx-textbox").length, 'has textbox');
@@ -6594,8 +6628,7 @@ QUnit.testInActiveWindow("Focused cell when editing cell in batch mode", functio
 QUnit.testInActiveWindow("Focused cell when editing cell in batch mode when fixed columns", function(assert) {
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.options.scrolling = {
         useNative: false
@@ -6606,24 +6639,21 @@ QUnit.testInActiveWindow("Focused cell when editing cell in batch mode when fixe
         mode: 'batch'
     };
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
     that.columnsController.init();
-    that.$element = function() {
-        return testElement;
-    };
 
     // act
-    testElement.find('.dx-datagrid-content-fixed tbody > tr').first().find("td").first().trigger('dxclick'); // Edit
+    that.gridContainer.find('.dx-datagrid-content-fixed tbody > tr').first().find("td").first().trigger('dxclick'); // Edit
     that.clock.tick();
 
     // assert
-    var $focusOverlay = testElement.find('.dx-datagrid-focus-overlay');
+    var $focusOverlay = that.gridContainer.find('.dx-datagrid-focus-overlay');
     assert.equal($focusOverlay.length, 1, 'focus overlay count');
 
-    assert.equal(testElement.find('.dx-datagrid-content-fixed tbody > tr').first().find("td").first().outerWidth(), browser.mozilla ? $focusOverlay.outerWidth() : $focusOverlay.outerWidth() - 1, 'width focus overlay');
+    assert.equal(that.gridContainer.find('.dx-datagrid-content-fixed tbody > tr').first().find("td").first().outerWidth(), browser.mozilla ? $focusOverlay.outerWidth() : $focusOverlay.outerWidth() - 1, 'width focus overlay');
 
     // T192066
-    var $editor = testElement.find('.dx-datagrid-content-fixed tbody > tr').first().find('td.dx-focused');
+    var $editor = that.gridContainer.find('.dx-datagrid-content-fixed tbody > tr').first().find('td.dx-focused');
 
     assert.ok($editor.length, 'focused cell');
     assert.ok($editor.find(".dx-textbox").length, 'has textbox');
@@ -6634,8 +6664,7 @@ QUnit.testInActiveWindow("Focused cell when editing cell in batch mode when fixe
 QUnit.testInActiveWindow("Focused last cell width when editing cell in batch mode", function(assert) {
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.options.scrolling = {
         useNative: false
@@ -6646,21 +6675,18 @@ QUnit.testInActiveWindow("Focused last cell width when editing cell in batch mod
         mode: 'batch'
     };
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
     that.columnsController.init();
-    that.$element = function() {
-        return testElement;
-    };
 
     // act
-    testElement.find('tbody > tr').first().find("td").last().trigger('dxclick'); // Edit
+    that.gridContainer.find('tbody > tr').first().find("td").last().trigger('dxclick'); // Edit
     that.clock.tick();
 
     // assert
-    var $focusOverlay = testElement.find('.dx-datagrid-focus-overlay');
+    var $focusOverlay = that.gridContainer.find('.dx-datagrid-focus-overlay');
     assert.equal($focusOverlay.length, 1, 'focus overlay count');
 
-    assert.equal(testElement.find('tbody > tr').first().find("td").last().outerWidth(), browser.mozilla ? $focusOverlay.outerWidth() - 1 : $focusOverlay.outerWidth(), 'width focus overlay');
+    assert.equal(that.gridContainer.find('tbody > tr').first().find("td").last().outerWidth(), browser.mozilla ? $focusOverlay.outerWidth() - 1 : $focusOverlay.outerWidth(), 'width focus overlay');
 });
 
 QUnit.test("Lookup editor with calculateDisplayValue", function(assert) {
@@ -6700,6 +6726,44 @@ QUnit.test("Lookup editor with calculateDisplayValue", function(assert) {
     assert.equal($cell.find(".dx-widget").length, 0, "no widgets in cell");
     assert.ok($cell.hasClass("dx-cell-modified"), "cell is modified");
     assert.equal($cell.text(), "state 2", "display text");
+});
+
+// T822553
+QUnit.test("Clear lookup editor with calculateDisplayValue", function(assert) {
+    // arrange
+    var that = this,
+        rowsView = that.rowsView,
+        testElement = $('#container');
+
+    that.options.columns.push({
+        dataField: "stateId",
+        calculateDisplayValue: "state.name",
+        lookup: {
+            dataSource: [{ id: 1, name: "state 1" }, { id: 2, name: "state 2" }],
+            displayExpr: "name",
+            valueExpr: "id"
+        }
+    });
+    that.options.editing = {
+        allowUpdating: true,
+        mode: 'batch'
+    };
+    rowsView.render(testElement);
+    that.columnsController.init();
+
+    // act
+    that.editCell(0, 5);
+    that.clock.tick();
+    var $selectBox = $(rowsView.getCellElement(0, 5)).find(".dx-selectbox");
+    $selectBox.dxSelectBox("instance").reset();
+    that.closeEditCell();
+    that.clock.tick();
+
+    // assert
+    var $cell = testElement.find(".dx-row").first().children("td").eq(5);
+
+    assert.ok($cell.hasClass("dx-cell-modified"), "cell is modified");
+    assert.equal($cell.text(), "\u00A0", "display text is empty space");
 });
 
 QUnit.test("Lookup editor in row mode do not update row", function(assert) {
@@ -7096,8 +7160,7 @@ QUnit.testInActiveWindow("Focused lookup column with showEditorAlways is enabled
     // arrange
     var that = this,
         callCountFocusEditingCell = 0,
-        rowsView = this.rowsView,
-        $testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.options.columns = [{
         dataField: "name",
@@ -7113,22 +7176,19 @@ QUnit.testInActiveWindow("Focused lookup column with showEditorAlways is enabled
         mode: 'cell'
     };
 
-    rowsView.render($testElement);
+    rowsView.render(that.gridContainer);
     that.columnsController.init();
-    that.$element = function() {
-        return $testElement;
-    };
 
     that.editingController._focusEditingCell = function() {
         callCountFocusEditingCell++;
     };
 
     // act
-    $($testElement.find("tbody > tr").first().find("td").first().find(".dx-selectbox-container")).trigger("dxclick"); // Edit
+    $(that.gridContainer.find("tbody > tr").first().find("td").first().find(".dx-selectbox-container")).trigger("dxclick"); // Edit
     that.clock.tick();
 
     // assert
-    var $focusOverlay = $testElement.find('.dx-datagrid-focus-overlay');
+    var $focusOverlay = that.gridContainer.find('.dx-datagrid-focus-overlay');
     assert.equal($focusOverlay.length, 1, 'focus overlay count');
     assert.ok(!callCountFocusEditingCell, "not call focusEditingCell");
 });
@@ -7762,10 +7822,39 @@ QUnit.test("A dependent cascading editor should be updated when a master cell va
     assert.strictEqual($(rowsView.getCellElement(0, 1)).text(), "Dallas", "text of the second column of the first row");
 });
 
+// T832801
+QUnit.test("The current editable row should close when adding a new row in 'row' mode", function(assert) {
+    // arrange
+    let rowsView = this.rowsView,
+        $testElement = $('#container');
+
+    this.options.editing = {
+        allowUpdating: true,
+        allowAdding: true
+    };
+    rowsView.render($testElement);
+
+    // act
+    this.editRow(2);
+
+    // assert
+    assert.ok($(rowsView.getRowElement(2)).hasClass("dx-edit-row"), "row is edited");
+
+    // act
+    this.addRow();
+
+    // assert
+    assert.ok($(rowsView.getRowElement(0)).hasClass("dx-edit-row dx-row-inserted"), "new row");
+    assert.notOk($(rowsView.getRowElement(3)).hasClass("dx-edit-row"), "row isn't edited");
+});
+
 
 QUnit.module('Refresh modes', {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
+
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
 
         this.array = [
             { id: 1, name: 'Alex', age: 15 },
@@ -8152,6 +8241,9 @@ QUnit.test("Custom button click should be prevented", function(assert) {
 
 QUnit.module('Editing with validation', {
     beforeEach: function() {
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.array = [
             { name: 'Alex', age: 15, lastName: "John", },
             { name: 'Dan', age: 16, lastName: "Skip" },
@@ -8487,6 +8579,45 @@ QUnit.test("Save edit data for inserted row when set validate in column and edit
     assert.strictEqual(cells.eq(11).text(), "Test", "text cell 12");
     assert.ok(!cells.eq(11).hasClass("dx-datagrid-invalid"), "success validation");
     assert.ok(!cells.eq(11).children().first().hasClass("dx-highlight-outline"), "not has highlight");
+});
+
+// T823583
+QUnit.test("Insert row when grouped column is required", function(assert) {
+    // arrange
+    var that = this;
+
+    that.rowsView.render($('#container'));
+
+    that.applyOptions({
+        editing: {
+            mode: "batch"
+        },
+        columns: [{
+            dataField: "some",
+            validationRules: [{ type: "required" }]
+        }, {
+            dataField: "group",
+            validationRules: [{ type: "required" }],
+            groupIndex: 1
+        }, {
+            dataField: "hiddenGroup",
+            validationRules: [{ type: "required" }],
+            visible: false,
+            groupIndex: 0
+        }, {
+            dataField: "showWhenGrouped",
+            groupIndex: 2,
+            showWhenGrouped: true,
+            validationRules: [{ type: "required" }]
+        }]
+    });
+
+    // act
+    that.addRow();
+    that.saveEditData();
+
+    // assert
+    assert.equal($(".dx-error-message").text(), "Hidden Group is required, Group is required", "error text");
 });
 
 // T420231
@@ -9313,7 +9444,7 @@ QUnit.testInActiveWindow("Tooltip should be positioned by left side when the dro
         rowsView = that.rowsView,
         $testElement = renderer("#container");
 
-    rowsView.render($testElement);
+    rowsView.render(that.gridContainer);
     that.applyOptions({
         editing: {
             mode: "batch",
@@ -9623,10 +9754,9 @@ QUnit.test("Show error row on save inserted row when promise is used in rowValid
 QUnit.testInActiveWindow("Cell editor invalid value don't miss focus on saveEditData", function(assert) {
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $("#container");
+        rowsView = this.rowsView;
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         editing: {
@@ -9662,7 +9792,7 @@ QUnit.testInActiveWindow("Cell editor invalid value don't miss focus on saveEdit
 
     // assert
     assert.ok($input.is(":focus"), "Text editor is focused after call saveEditData");
-    assert.ok(testElement.find(".dx-invalid-message").is(":visible"));
+    assert.ok(that.gridContainer.find(".dx-invalid-message").is(":visible"));
 });
 
 // T284398
@@ -9670,10 +9800,9 @@ QUnit.testInActiveWindow("Show invalid message on focus for an invalid cell of t
     // arrange
     var that = this,
         $highlight,
-        rowsView = this.rowsView,
-        testElement = $("#container");
+        rowsView = this.rowsView;
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         editing: {
@@ -9704,7 +9833,7 @@ QUnit.testInActiveWindow("Show invalid message on focus for an invalid cell of t
     // assert
     assert.ok($input.is(":focus"), "Text editor is focused after call saveEditData");
     assert.ok($input.closest("td").hasClass("dx-datagrid-invalid"), "failed validation");
-    assert.ok(testElement.find(".dx-invalid-message").is(":visible"), "visible invalid message");
+    assert.ok(that.gridContainer.find(".dx-invalid-message").is(":visible"), "visible invalid message");
 
     // act
     $input.val("123");
@@ -9722,10 +9851,9 @@ QUnit.test('Show error row on save inserted Row after scrolling when set validat
     // arrange
     var done = assert.async(),
         that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
     rowsView.height(50);
     rowsView.resize();
 
@@ -9745,17 +9873,17 @@ QUnit.test('Show error row on save inserted Row after scrolling when set validat
 
         // assert
         assert.strictEqual(rowsView.getTopVisibleItemIndex(), 1, "top visible item index");
-        assert.equal(getInputElements(testElement.find('tbody > tr').eq(1)).length, 3);
-        assert.equal(testElement.find('tbody > tr').length, 5, "count rows");
+        assert.equal(getInputElements(that.gridContainer.find('tbody > tr').eq(1)).length, 3);
+        assert.equal(that.gridContainer.find('tbody > tr').length, 5, "count rows");
 
         // act
         that.saveEditData();
 
         // assert
-        assert.equal(testElement.find('tbody > tr').length, 6, "count rows");
-        assert.ok(testElement.find('tbody > tr').eq(1).hasClass("dx-row-inserted"), "has inserted row");
-        assert.ok(testElement.find('tbody > tr').eq(2).hasClass("dx-error-row"), "has error row");
-        assert.strictEqual(testElement.find('tbody > tr').eq(2).text(), "Test");
+        assert.equal(that.gridContainer.find('tbody > tr').length, 6, "count rows");
+        assert.ok(that.gridContainer.find('tbody > tr').eq(1).hasClass("dx-row-inserted"), "has inserted row");
+        assert.ok(that.gridContainer.find('tbody > tr').eq(2).hasClass("dx-error-row"), "has error row");
+        assert.strictEqual(that.gridContainer.find('tbody > tr').eq(2).text(), "Test");
         done();
     });
 
@@ -9923,11 +10051,10 @@ QUnit.test("Edit cell when edit mode cell and set validate in column", function(
 
 QUnit.testInActiveWindow("Show the revert button when an edit cell to invalid value when the edit mode cell is enabled", function(assert) {
     // arrange
-    var testElement = $('#container'),
-        $cells,
+    var $cells,
         inputElement;
 
-    this.rowsView.render(testElement);
+    this.rowsView.render(this.gridContainer);
 
     this.applyOptions({
         editing: {
@@ -9965,17 +10092,16 @@ QUnit.testInActiveWindow("Show the revert button when an edit cell to invalid va
     assert.equal($(".dx-datagrid-revert-tooltip").length, 2, "tooltip with revert button");
     assert.equal($(".dx-revert-button").length, 1, "revert button");
     // T494489
-    assert.equal($(".dx-revert-button").closest(testElement).length, 1, "revert button is rendered in DataGrid container");
+    assert.equal($(".dx-revert-button").closest(this.gridContainer).length, 1, "revert button is rendered in DataGrid container");
 });
 
 // T297742
 QUnit.testInActiveWindow("Show the revert button when an edit cell, server returns error and the edit mode cell is enabled", function(assert) {
     // arrange
-    var testElement = $('#container'),
-        $cells,
+    var $cells,
         inputElement;
 
-    this.rowsView.render(testElement);
+    this.rowsView.render(this.gridContainer);
 
     this.applyOptions({
         showColumnHeaders: true,
@@ -10020,9 +10146,7 @@ QUnit.testInActiveWindow("Show the revert button when an edit cell, server retur
 
 QUnit.testInActiveWindow("Change hint for revert button", function(assert) {
     // arrange
-    var testElement = $('#container');
-
-    this.rowsView.render(testElement);
+    this.rowsView.render(this.gridContainer);
 
     this.applyOptions({
         editing: {
@@ -10096,12 +10220,11 @@ QUnit.test("Revert is hidden when value is valid", function(assert) {
 
 QUnit.testInActiveWindow("Revert to an old value when the revert button is clicked", function(assert) {
     // arrange
-    var testElement = $('#container'),
-        $revertButton,
+    var $revertButton,
         $cells,
         $input;
 
-    this.rowsView.render(testElement);
+    this.rowsView.render(this.gridContainer);
 
     this.applyOptions({
         editing: {
@@ -10204,11 +10327,10 @@ QUnit.test("Revert button is not shown when the height light css class is not ap
 
 QUnit.testInActiveWindow("Save a valid value for an invalid cell when focus in other invalid cell", function(assert) {
     // arrange
-    var testElement = $('#container'),
-        $cells,
+    var $cells,
         $input;
 
-    this.rowsView.render(testElement);
+    this.rowsView.render(this.gridContainer);
 
     this.applyOptions({
         editing: {
@@ -10381,8 +10503,7 @@ QUnit.testInActiveWindow("Insert row using extern button when edit mode cell", f
     }
     // arrange
     var that = this,
-        rowsView = this.rowsView,
-        testElement = $('#container');
+        rowsView = this.rowsView;
 
     var $addRowButton = $("<div>").appendTo("#qunit-fixture").dxButton({
         text: "Add Row",
@@ -10391,7 +10512,7 @@ QUnit.testInActiveWindow("Insert row using extern button when edit mode cell", f
         }
     });
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         editing: {
@@ -10405,9 +10526,9 @@ QUnit.testInActiveWindow("Insert row using extern button when edit mode cell", f
     this.clock.tick();
 
     // assert
-    assert.equal(testElement.find('.dx-row-inserted').length, 1, "inserted row is rendered");
-    assert.ok(testElement.find('.dx-row-inserted').children().eq(0).hasClass("dx-focused"), 1, "first cell in inserted row is focused");
-    assert.ok(getInputElements(testElement).length, 1, "one editor is rendered");
+    assert.equal(that.gridContainer.find('.dx-row-inserted').length, 1, "inserted row is rendered");
+    assert.ok(that.gridContainer.find('.dx-row-inserted').children().eq(0).hasClass("dx-focused"), 1, "first cell in inserted row is focused");
+    assert.ok(getInputElements(that.gridContainer).length, 1, "one editor is rendered");
 });
 
 QUnit.test('Edit cell with edit mode batch and change page', function(assert) {
@@ -11024,7 +11145,8 @@ QUnit.test("It's impossible to save new data when editing form is invalid", func
         rowsView = this.rowsView,
         testElement = $('#container'),
         $formRow,
-        inputElement;
+        inputElement,
+        $invalid;
 
     rowsView.render(testElement);
 
@@ -11054,8 +11176,11 @@ QUnit.test("It's impossible to save new data when editing form is invalid", func
     that.clock.tick();
 
     // assert
+    $invalid = $formRow.find(".dx-invalid");
     assert.equal(that.editingController._editRowIndex, 0, "first row is still editing");
-    assert.equal($formRow.find(".dx-invalid").length, 1, "There is one invalid editor in first row");
+    assert.equal($invalid.length, 1, "There is one invalid editor in first row");
+    // T819068
+    assert.equal($invalid.find(".dx-overlay-content").css("whiteSpace"), "normal", "white-space is normal");
 });
 
 QUnit.test("It's impossible to save new data when editing form is invalid (async)", function(assert) {
@@ -11166,11 +11291,90 @@ QUnit.test("Only valid data is saved (async)", function(assert) {
     assert.equal($formRow.find(".dx-validation-pending").length, 1, "There is one pending editor in first row");
 });
 
+QUnit.test("AsyncRule.validationCallback accepts extra parameters", function(assert) {
+    // arrange
+    let rowsView = this.rowsView,
+        testElement = $("#container"),
+        inputElement;
+    const validationCallback = sinon.spy(function() { return new Deferred().resolve().promise(); });
+
+    rowsView.render(testElement);
+
+    this.applyOptions({
+        loadingTimeout: undefined,
+        editing: {
+            mode: "form",
+            allowUpdating: true,
+        },
+        columns: [{
+            dataField: "age",
+            validationRules: [{
+                type: "async",
+                validationCallback: validationCallback
+            }]
+        }]
+    });
+
+    // act
+    this.editRow(0);
+
+    inputElement = getInputElements(testElement).first();
+    inputElement.val("");
+    inputElement.trigger("change");
+
+    assert.equal(validationCallback.callCount, 1, "valdiationCallback should be called once");
+
+    const params = validationCallback.getCall(0).args[0];
+
+    assert.ok(params.data, "data should be passed");
+    assert.strictEqual(params.column.dataField, "age", "column.dataField === 'age'");
+    assert.ok(params.column.validationRules, "column.validationRules !== null");
+});
+
+QUnit.test("CustomRule.validationCallback accepts extra parameters", function(assert) {
+    // arrange
+    let rowsView = this.rowsView,
+        testElement = $("#container"),
+        inputElement;
+    const validationCallback = sinon.spy(function() { return true; });
+
+    rowsView.render(testElement);
+
+    this.applyOptions({
+        loadingTimeout: undefined,
+        editing: {
+            mode: "form",
+            allowUpdating: true,
+        },
+        columns: [{
+            dataField: "age",
+            validationRules: [{
+                type: "custom",
+                validationCallback: validationCallback
+            }]
+        }]
+    });
+
+    // act
+    this.editRow(0);
+
+    inputElement = getInputElements(testElement).first();
+    inputElement.val("");
+    inputElement.trigger("change");
+
+    assert.equal(validationCallback.callCount, 1, "valdiationCallback should be called once");
+
+    const params = validationCallback.getCall(0).args[0];
+
+    assert.ok(params.data, "data should be passed");
+    assert.strictEqual(params.column.dataField, "age", "column.dataField === 'age'");
+    assert.ok(params.column.validationRules, "column.validationRules !== null");
+});
+
 // T506863
 QUnit.testInActiveWindow("Show the revert button when a row updating is canceled", function(assert) {
     // arrange
-    var rowsView = this.rowsView,
-        testElement = $('#container');
+    var rowsView = this.rowsView;
 
     this.applyOptions({
         editing: {
@@ -11188,12 +11392,12 @@ QUnit.testInActiveWindow("Show the revert button when a row updating is canceled
             params.cancel = true;
         }
     });
-    rowsView.render(testElement);
-    var $cell = testElement.find('td').first();
+    rowsView.render(this.gridContainer);
+    var $cell = this.gridContainer.find('td').first();
     $($cell).trigger('dxclick'); // Edit
     this.clock.tick();
 
-    var $input = getInputElements(testElement).first();
+    var $input = getInputElements(this.gridContainer).first();
     $input.val(101);
     $($input).trigger('change');
 
@@ -11201,7 +11405,7 @@ QUnit.testInActiveWindow("Show the revert button when a row updating is canceled
     $input.trigger("dxclick");
     this.clock.tick();
 
-    assert.ok(testElement.find(".dx-revert-button").length, "the revert button is shown");
+    assert.ok(this.gridContainer.find(".dx-revert-button").length, "the revert button is shown");
 });
 
 QUnit.test("Show error message on save inserted rows when edit mode is 'popup'", function(assert) {
@@ -11350,8 +11554,7 @@ QUnit.test("Cell edit mode - The validation should not work for column with 'sho
     // arrange
     var that = this,
         $cellElement,
-        rowsView = this.rowsView,
-        $testElement = $('#container');
+        rowsView = this.rowsView;
 
     that.applyOptions({
         dataSource: [{ name: "", test: true }],
@@ -11368,7 +11571,7 @@ QUnit.test("Cell edit mode - The validation should not work for column with 'sho
             validationRules: [{ type: "required" }]
         }]
     });
-    rowsView.render($testElement);
+    rowsView.render(that.gridContainer);
 
     // act
     that.addRow();
@@ -11383,10 +11586,9 @@ QUnit.testInActiveWindow("Batch edit mode - Validation message should be shown w
     // arrange
     var that = this,
         rowsView = this.rowsView,
-        testElement = $('#container'),
         inputElement;
 
-    rowsView.render(testElement);
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         editing: {
@@ -11405,7 +11607,7 @@ QUnit.testInActiveWindow("Batch edit mode - Validation message should be shown w
 
     that.editCell(0, 0);
 
-    inputElement = getInputElements(testElement).first();
+    inputElement = getInputElements(that.gridContainer).first();
     inputElement
         .val("")
         .trigger('change');
@@ -11419,8 +11621,7 @@ QUnit.testInActiveWindow("Batch edit mode - Validation message should be shown w
 
 QUnit.testInActiveWindow("Show validation message for CheckBox editor", function(assert) {
     // arrange
-    var rowsView = this.rowsView,
-        testElement = $('#container');
+    var rowsView = this.rowsView;
 
     this.applyOptions({
         editing: {
@@ -11442,15 +11643,15 @@ QUnit.testInActiveWindow("Show validation message for CheckBox editor", function
         }
     });
 
-    rowsView.render(testElement);
+    rowsView.render(this.gridContainer);
 
     // act
     this.editingController.editRow(0);
-    testElement.find(".dx-checkbox").first().trigger("dxclick");
+    this.gridContainer.find(".dx-checkbox").first().trigger("dxclick");
     this.clock.tick();
 
     // assert
-    assert.equal(testElement.find(".dx-invalid-message.dx-overlay").length, 1, "validation message should be shown");
+    assert.equal(this.gridContainer.find(".dx-invalid-message.dx-overlay").length, 1, "validation message should be shown");
 });
 
 QUnit.testInActiveWindow("Empty validation message is not shown", function(assert) {
@@ -11497,8 +11698,7 @@ QUnit.testInActiveWindow("SelectBox should be closed on focus another editor if 
     var that = this,
         $cellElements,
         $selectBoxInput,
-        rowsView = this.rowsView,
-        $testElement = $('#container');
+        rowsView = this.rowsView;
 
     fx.off = true;
 
@@ -11519,7 +11719,7 @@ QUnit.testInActiveWindow("SelectBox should be closed on focus another editor if 
                 validationRules: [{ type: "required" }]
             }, "age"]
         });
-        rowsView.render($testElement);
+        rowsView.render(that.gridContainer);
 
         this.addRow();
         this.clock.tick();
@@ -11527,7 +11727,7 @@ QUnit.testInActiveWindow("SelectBox should be closed on focus another editor if 
         this.saveEditData();
         this.clock.tick();
 
-        $cellElements = $testElement.find(".dx-row-inserted").children();
+        $cellElements = that.gridContainer.find(".dx-row-inserted").children();
         $selectBoxInput = $cellElements.find(".dx-texteditor-input").first();
         $selectBoxInput.trigger("dxclick");
         this.clock.tick();
@@ -11580,10 +11780,9 @@ QUnit.test("Prevent cell validation if template with editor is used", function(a
 QUnit.test("Validation error message should not hide behind a grouped row when there are fixed columns", function(assert) {
     // arrange
     var that = this,
-        rowsView = that.rowsView,
-        $testElement = $('#container');
+        rowsView = that.rowsView;
 
-    rowsView.render($testElement);
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         grouping: {
@@ -11629,10 +11828,11 @@ QUnit.test("The validation message should not be overlapped by the fixed column 
     var that = this,
         overlayInstance,
         overlayPosition,
-        rowsView = that.rowsView,
-        $testElement = $('#container').width(400);
+        rowsView = that.rowsView;
 
-    rowsView.render($testElement);
+    that.$element().width(400);
+
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         width: 400,
@@ -11673,10 +11873,11 @@ QUnit.test("The validation message should not be overlapped by the fixed column 
         tooltipInstance,
         overlayPosition,
         tooltipPosition,
-        rowsView = that.rowsView,
-        $testElement = $('#container').width(400);
+        rowsView = that.rowsView;
 
-    rowsView.render($testElement);
+    that.$element().width(400);
+
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         width: 400,
@@ -11729,10 +11930,11 @@ QUnit.test("The validation message should be decreased when there is not enough 
     var that = this,
         overlayInstance,
         overlayPosition,
-        rowsView = that.rowsView,
-        $testElement = $('#container').width(500);
+        rowsView = that.rowsView;
 
-    rowsView.render($testElement);
+    that.$element().width(500);
+
+    rowsView.render(that.gridContainer);
 
     that.applyOptions({
         width: 500,
@@ -11771,9 +11973,73 @@ QUnit.test("The validation message should be decreased when there is not enough 
     assert.strictEqual(overlayPosition.at, "bottom left", "position.at");
 });
 
+// T829925
+QUnit.test("No exceptions on editing a column with given setCellValue when repaintChangedOnly is true", function(assert) {
+    // arrange
+    const $testElement = $('#container');
+
+    this.rowsView.render($testElement);
+
+    this.applyOptions({
+        repaintChangesOnly: true,
+        editing: {
+            mode: "form",
+            allowUpdating: true,
+            form: {
+                items: [{
+                    dataField: "name",
+                    validationRules: [{
+                        "type": "required",
+                        "message": "The LastNameID field is required."
+                    }]
+                }, "age", "lastName"]
+            }
+        },
+        columns: [
+            {
+                dataField: 'name',
+                setCellValue: function() { this.defaultSetCellValue.apply(this, arguments); }
+            }, "age", "lastName"]
+    });
+
+    this.editRow(0);
+
+    // assert
+    let $cellElement = $(this.getCellElement(0, "name")),
+        validator = dataUtils.data($cellElement.find(".dx-texteditor").get(0), "dxValidator");
+
+    assert.strictEqual($(this.getRowElement(0)).find(".dx-form").length, 1, "there is edit form");
+    assert.ok(validator, "editor has validator");
+
+    try {
+        // arrange
+        const validatorOptions = validator.option();
+
+        // act
+        this.cellValue(0, "name", "");
+
+        // assert
+        $cellElement = $(this.getCellElement(0, "name")),
+        validator = dataUtils.data($cellElement.find(".dx-texteditor").get(0), "dxValidator");
+        const validatorOptionsAfterEditing = validator.option();
+
+        assert.ok($cellElement.find(".dx-textbox").first().hasClass("dx-invalid"), "editor value isn't valid");
+        assert.ok(validator, "editor has validator");
+        assert.strictEqual(validatorOptionsAfterEditing.validationRules, validatorOptions.validationRules, "validationRules");
+        assert.strictEqual(validatorOptionsAfterEditing.validationGroup, validatorOptions.validationGroup, "validationGroup");
+        assert.strictEqual(validatorOptionsAfterEditing.dataGetter, validatorOptions.dataGetter, "dataGetter");
+    } catch(e) {
+        // assert
+        assert.ok(false, "exception");
+    }
+});
+
 
 QUnit.module('Editing with real dataController with grouping, masterDetail', {
     beforeEach: function() {
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.array = [
             { name: 'Alex', age: 15, lastName: "John", phone: "555555", room: 1 },
             { name: 'Dan', age: 16, lastName: "Skip", phone: "553355", room: 2 },
@@ -12088,6 +12354,9 @@ var generateDataSource = function(countItem, countColumn) {
 
 QUnit.module('Editing with scrolling', {
     beforeEach: function() {
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.options = {
             dataSource: generateDataSource(11, 2),
             columns: [{ dataField: "column1", allowEditing: true }, "column2"],
@@ -12806,6 +13075,184 @@ QUnit.test("cancelEditData after scrolling if scrolling mode is editing", functi
     assert.equal(testElement.find(".dx-edit-row").length, 0, "edit row is closed");
 });
 
+QUnit.test("Add new row items on 'append' if virtual scrolling (T812340)", function(assert) {
+    // arrange
+    this.options = $.extend(this.options, {
+        dataSource: generateDataSource(50, 2),
+        keyExpr: "column1",
+        editing: {
+            mode: "batch"
+        },
+        paging: {
+            pageSize: 3
+        },
+        scrolling: {
+            mode: "virtual",
+            useNative: false
+        }
+    });
+
+    this.setupDataGrid();
+
+    this.rowsView.render($('#container'));
+    this.rowsView.height(200);
+    this.rowsView.resize();
+
+    this.clock.tick();
+
+    // act
+    this.pageIndex(5);
+    this.addRow();
+    this.addRow();
+    this.pageIndex(4);
+    this.pageIndex(3);
+    this.pageIndex(2);
+    this.pageIndex(3);
+    this.pageIndex(4);
+    this.pageIndex(5);
+    // arrange, assert
+    const rowsViewWrapper = dataGridWrapper.rowsView;
+    const newRows = this.dataController.items().filter(item => item.isNewRow);
+    assert.equal(newRows.length, 2, "Two new rows");
+    assert.equal(this.dataController.items()[11].key, "Item161", "Next row");
+    assert.ok(rowsViewWrapper.isNewRow(9), "Row 9 is new in view");
+    assert.ok(rowsViewWrapper.isNewRow(10), "Row 10 is new in view");
+});
+
+QUnit.test("Add new row items on 'prepend' if virtual scrolling (T812340)", function(assert) {
+    // arrange
+    this.options = $.extend(this.options, {
+        dataSource: generateDataSource(50, 2),
+        keyExpr: "column1",
+        editing: {
+            mode: "batch"
+        },
+        paging: {
+            pageSize: 3
+        },
+        scrolling: {
+            mode: "virtual",
+            useNative: false
+        }
+    });
+
+    this.setupDataGrid();
+
+    this.rowsView.render($('#container'));
+    this.rowsView.height(200);
+    this.rowsView.resize();
+
+    this.clock.tick();
+
+    // act
+    this.pageIndex(5);
+    this.addRow();
+    this.addRow();
+    this.pageIndex(6);
+    this.pageIndex(7);
+    this.pageIndex(8);
+    this.pageIndex(7);
+    this.pageIndex(6);
+    this.pageIndex(5);
+    // arrange, assert
+    const rowsViewWrapper = dataGridWrapper.rowsView;
+    const newRows = this.dataController.items().filter(item => item.isNewRow);
+    assert.equal(newRows.length, 2, "Two new rows");
+    assert.equal(this.dataController.items()[2].key, "Item161", "Next row");
+    assert.ok(rowsViewWrapper.isNewRow(0), "Row 0 is new in view");
+    assert.ok(rowsViewWrapper.isNewRow(1), "Row 1 is new in view");
+});
+
+QUnit.test("Add new row items on 'append' if virtual scrolling and rowRenderingMode is virtual (T812340)", function(assert) {
+    // arrange
+    this.options = $.extend(this.options, {
+        dataSource: generateDataSource(50, 2),
+        keyExpr: "column1",
+        editing: {
+            mode: "batch"
+        },
+        paging: {
+            pageSize: 3
+        },
+        scrolling: {
+            mode: "virtual",
+            rowRenderingMode: "virtual",
+            useNative: false
+        }
+    });
+
+    this.setupDataGrid();
+
+    this.rowsView.render($('#container'));
+    this.rowsView.height(200);
+    this.rowsView.resize();
+
+    this.clock.tick();
+
+    // act
+    this.pageIndex(5);
+    this.addRow();
+    this.addRow();
+    this.pageIndex(4);
+    this.pageIndex(3);
+    this.pageIndex(2);
+    this.pageIndex(3);
+    this.pageIndex(4);
+    this.pageIndex(5);
+    // arrange, assert
+    const rowsViewWrapper = dataGridWrapper.rowsView;
+    const newRows = this.dataController.items().filter(item => item.isNewRow);
+    assert.equal(newRows.length, 2, "Two new rows");
+    assert.equal(this.dataController.items()[11].key, "Item161", "Next row");
+    assert.ok(rowsViewWrapper.isNewRow(9), "Row 9 is new in view");
+    assert.ok(rowsViewWrapper.isNewRow(10), "Row 10 is new in view");
+});
+
+QUnit.test("Add new row items on 'prepend' if virtual scrolling and rowRenderingMode is virtual (T812340)", function(assert) {
+    // arrange
+    this.options = $.extend(this.options, {
+        dataSource: generateDataSource(50, 2),
+        keyExpr: "column1",
+        editing: {
+            mode: "batch"
+        },
+        paging: {
+            pageSize: 3
+        },
+        scrolling: {
+            mode: "virtual",
+            rowRenderingMode: "virtual",
+            useNative: false
+        },
+    });
+
+    this.setupDataGrid();
+
+    this.rowsView.render($('#container'));
+    this.rowsView.height(200);
+    this.rowsView.resize();
+
+    this.clock.tick();
+
+    // act
+    this.pageIndex(5);
+    this.addRow();
+    this.addRow();
+    this.pageIndex(6);
+    this.pageIndex(7);
+    this.pageIndex(8);
+    this.pageIndex(7);
+    this.pageIndex(6);
+    this.pageIndex(5);
+    // arrange, assert
+    const rowsViewWrapper = dataGridWrapper.rowsView;
+    const newRows = this.dataController.items().filter(item => item.isNewRow);
+    assert.equal(newRows.length, 2, "Two new rows");
+    assert.equal(this.dataController.items()[2].key, "Item161", "Next row");
+    assert.ok(rowsViewWrapper.isNewRow(0), "Row 0 is new in view");
+    assert.ok(rowsViewWrapper.isNewRow(1), "Row 1 is new in view");
+});
+
 QUnit.test("DataGrid should show error message on adding row if dataSource is not specified (T711831)", function(assert) {
     // arrange
     var errorCode,
@@ -12833,6 +13280,10 @@ QUnit.test("DataGrid should show error message on adding row if dataSource is no
 QUnit.module('Edit Form', {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
+
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.array = [
             { name: 'Alex', age: 15, lastName: "John", phone: "555555", room: 1 },
             { name: 'Dan', age: 16, lastName: "Skip", phone: "553355", room: 2 },
@@ -14075,10 +14526,45 @@ QUnit.test("Edit form when the editorType is specified in the column.formItem an
     assert.ok($editorElement.first().dxAutocomplete("instance"), "editor instance");
 });
 
+QUnit.test("The edit form should not be rerendered when setCellValue is set for the column and repaintChangesOnly is true", function(assert) {
+    // arrange
+    this.options.repaintChangesOnly = true;
+    this.columns[0] = { dataField: "name", setCellValue: function() { this.defaultSetCellValue.apply(this, arguments); } };
+    this.setupModules(this);
+
+    let rowsView = this.rowsView,
+        $testElement = $('#container');
+
+    rowsView.render($testElement);
+
+    // act
+    this.editRow(0);
+
+    let editFormInstance = this.editingController._editForm,
+        $editForm = $(editFormInstance.element()),
+        $editFormItem = $editForm.find(".dx-datagrid-edit-form-item").first();
+
+    // assert
+    assert.strictEqual($editForm.length, 1, "there is edit form");
+
+    // act
+    this.cellValue(0, "name", "Test");
+
+    // assert
+    assert.strictEqual($(this.getRowElement(0)).find(".dx-form").get(0), $editForm.get(0), "edit form is not re-rendered");
+    assert.strictEqual(this.editingController._editForm, editFormInstance, "edit form is not recreated");
+    assert.strictEqual($editForm.find(".dx-datagrid-edit-form-item").get(0), $editFormItem.get(0), "first edit form item is not re-rendered");
+    assert.strictEqual($editForm.find(".dx-datagrid-edit-form-item").first().find(".dx-texteditor-input").val(), "Test", "first cell value is changed");
+});
+
 
 QUnit.module('Editing - "popup" mode', {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
+
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.array = [
             { name: 'Alex', age: 15, lastName: "John", phone: "555555", room: 1 },
             { name: 'Dan', age: 16, lastName: "Skip", phone: "553355", room: 2 },
@@ -14115,6 +14601,7 @@ QUnit.module('Editing - "popup" mode', {
         this.$testElement = $("#container");
 
         this.setupModules = function(that) {
+
             setupDataGridModules(that, ['data', 'columns', 'columnHeaders', 'rows', 'masterDetail', 'editing', 'editorFactory', 'errorHandling', 'selection', 'headerPanel', 'columnFixing', 'validating'], {
                 initViews: true
             });
@@ -14942,9 +15429,36 @@ QUnit.test("The editCellTemplate should be called once for the form when adding 
     assert.strictEqual($(this.getEditPopupContent()).find(".myEditor").length, 1, "form has custom editor");
 });
 
+QUnit.test("Popup edit form repainting should be affected by beginUpdate / endUpdate (T819475)", function(assert) {
+    const spy = sinon.spy();
+
+    this.setupModules(this);
+    this.renderRowsView();
+
+    // act
+    this.editRow(1);
+    this.clock.tick();
+
+    // arrange
+    this.editingController._editForm.repaint = spy;
+
+    // act
+    this.editingController.beginUpdate();
+    this.cellValue(1, "name", "test_name");
+    this.cellValue(1, "lastName", "test_lastName");
+    this.editingController.endUpdate();
+
+    // assert
+    assert.equal(spy.callCount, 1, "Edit form has repainted only once");
+});
+
 QUnit.module("Promises in callbacks and events", {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
+
+        this.$element = () => $("#container");
+        this.gridContainer = $("#container > .dx-datagrid");
+
         this.array = [
             { name: "Alex", age: 15, lastName: "John", phone: "555555", room: 1 },
             { name: "Dan", age: 16, lastName: "Skip", phone: "553355", room: 2 },
@@ -15624,4 +16138,36 @@ QUnit.test("Adding multiple rows with async onInitNewRow (mixed failures and suc
     // assert
     assert.equal(visibleRows.length, 8, "two rows were added");
     assert.deepEqual(visibleRows[7].data, { room: 9 }, "row #7 data");
+});
+
+QUnit.test("Adding row and editing another row when the onInitNewRow event is asynchronous and row mode is set", function(assert) {
+    // arrange
+    var $testElement = $("#container");
+
+    this.options.columns = ["room"];
+    this.options.editing = {
+        allowAdding: true,
+        mode: "row"
+    };
+    this.options.onInitNewRow = function(e) {
+        e.promise = $.Deferred();
+        setTimeout(() => {
+            e.promise.resolve();
+        }, 500);
+    };
+
+    this.editingController.optionChanged({ name: "onInitNewRow" });
+    this.columnHeadersView.render($testElement);
+    this.rowsView.render($testElement);
+    this.headerPanel.render($testElement);
+    this.columnsController.init();
+
+    // act
+    this.addRow();
+    this.editRow(2);
+    this.clock.tick(500);
+
+    // assert
+    assert.ok($(this.rowsView.getRowElement(0)).hasClass("dx-edit-row dx-row-inserted"), "new row");
+    assert.notOk($(this.rowsView.getRowElement(3)).hasClass("dx-edit-row"), "row isn't edited");
 });

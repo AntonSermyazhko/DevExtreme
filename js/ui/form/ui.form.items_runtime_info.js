@@ -1,5 +1,6 @@
 import Guid from "../../core/guid";
 import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
 
 export default class FormItemsRunTimeInfo {
     constructor() {
@@ -7,7 +8,7 @@ export default class FormItemsRunTimeInfo {
     }
 
     _findWidgetInstance(condition) {
-        var result;
+        let result;
 
         each(this._map, function(guid, { widgetInstance, item }) {
             if(condition(item)) {
@@ -20,15 +21,31 @@ export default class FormItemsRunTimeInfo {
         return result;
     }
 
+    _findFieldByCondition(callback, valueExpr) {
+        let result;
+        each(this._map, function(key, value) {
+            if(callback(value)) {
+                result = valueExpr === "guid" ? key : value[valueExpr];
+                return false;
+            }
+        });
+        return result;
+    }
+
     clear() {
         this._map = {};
     }
 
-    add(item, widgetInstance, guid, $itemContainer) {
-        guid = guid || new Guid();
-        this._map[guid] = { item, widgetInstance, $itemContainer };
+    removeItemsByItems(itemsRunTimeInfo) {
+        each(itemsRunTimeInfo.getItems(), guid => {
+            delete this._map[guid];
+        });
+    }
 
-        return guid;
+    add(options) {
+        const key = options.guid || new Guid();
+        this._map[key] = options;
+        return key;
     }
 
     addItemsOrExtendFrom(itemsRunTimeInfo) {
@@ -37,13 +54,34 @@ export default class FormItemsRunTimeInfo {
                 this._map[key].widgetInstance = itemRunTimeInfo.widgetInstance;
                 this._map[key].$itemContainer = itemRunTimeInfo.$itemContainer;
             } else {
-                this.add(itemRunTimeInfo.item, itemRunTimeInfo.widgetInstance, key, itemRunTimeInfo.$itemContainer);
+                this.add({
+                    item: itemRunTimeInfo.item,
+                    widgetInstance: itemRunTimeInfo.widgetInstance,
+                    guid: key,
+                    $itemContainer: itemRunTimeInfo.$itemContainer
+                });
             }
         });
     }
 
+    extendRunTimeItemInfoByKey(key, options) {
+        this._map[key] = extend(this._map[key], options);
+    }
+
     findWidgetInstanceByItem(item) {
         return this._findWidgetInstance(storedItem => storedItem === item);
+    }
+
+    getGroupOrTabLayoutManagerByPath(targetPath) {
+        return this._findFieldByCondition(({ path }) => path === targetPath, "layoutManager");
+    }
+
+    getKeyByPath(targetPath) {
+        return this._findFieldByCondition(({ path }) => path === targetPath, "guid");
+    }
+
+    getPathFromItem(targetItem) {
+        return this._findFieldByCondition(({ item }) => item === targetItem, "path");
     }
 
     findWidgetInstanceByName(name) {
@@ -61,6 +99,14 @@ export default class FormItemsRunTimeInfo {
             }
         }
         return null;
+    }
+
+    findItemIndexByItem(targetItem) {
+        return this._findFieldByCondition(({ item }) => item === targetItem, "itemIndex");
+    }
+
+    getItems() {
+        return this._map;
     }
 
     each(handler) {

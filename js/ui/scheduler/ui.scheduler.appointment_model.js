@@ -3,7 +3,7 @@ import iteratorUtils from "../../core/utils/iterator";
 import dateSerialization from "../../core/utils/date_serialization";
 import recurrenceUtils from "./utils.recurrence";
 import dateUtils from "../../core/utils/date";
-import commonUtils from "../../core/utils/common";
+import { equalByValue } from "../../core/utils/common";
 import typeUtils from "../../core/utils/type";
 import { inArray } from "../../core/utils/array";
 import { extend } from "../../core/utils/extend";
@@ -94,7 +94,7 @@ const compareDateWithStartDayHour = (startDate, endDate, startDayHour, allDay, s
     return result;
 };
 
-const compareDateWithEndDayHour = (startDate, endDate, startDayHour, endDayHour, allDay, max) => {
+const compareDateWithEndDayHour = (startDate, endDate, startDayHour, endDayHour, allDay, severalDays, max, min) => {
     var hiddenInterval = (24 - endDayHour + startDayHour) * toMs("hour"),
         apptDuration = endDate.getTime() - startDate.getTime(),
         delta = (hiddenInterval - apptDuration) / toMs("hour"),
@@ -102,9 +102,13 @@ const compareDateWithEndDayHour = (startDate, endDate, startDayHour, endDayHour,
         apptStartMinutes = startDate.getMinutes(),
         result;
 
-    var endTime = dateUtils.dateTimeFromDecimal(endDayHour);
+    var endTime = dateUtils.dateTimeFromDecimal(endDayHour),
+        startTime = dateUtils.dateTimeFromDecimal(startDayHour);
 
-    result = (apptStartHour < endTime.hours) || (apptStartHour === endTime.hours && apptStartMinutes < endTime.minutes) || allDay && startDate <= max;
+    result = (apptStartHour < endTime.hours) ||
+        (apptStartHour === endTime.hours && apptStartMinutes < endTime.minutes) ||
+        (allDay && startDate <= max) ||
+        (severalDays && (startDate < max && endDate > min) && (apptStartHour < endTime.hours || (endDate.getHours() * 60 + endDate.getMinutes()) > startTime.hours * 60));
 
     if(apptDuration < hiddenInterval) {
         if((apptStartHour > endTime.hours && apptStartMinutes > endTime.minutes) && (delta <= apptStartHour - endDayHour)) {
@@ -141,7 +145,7 @@ class AppointmentModel {
         var dateFilter = this._filterMaker.dateFilter(),
             dataSourceFilter = this._dataSource.filter();
 
-        return dataSourceFilter && (commonUtils.equalByValue(dataSourceFilter, dateFilter) || (dataSourceFilter.length && commonUtils.equalByValue(dataSourceFilter[DATE_FILTER_POSITION], dateFilter)));
+        return dataSourceFilter && (equalByValue(dataSourceFilter, dateFilter) || (dataSourceFilter.length && equalByValue(dataSourceFilter[DATE_FILTER_POSITION], dateFilter)));
     }
 
     _combineFilter() {
@@ -292,7 +296,7 @@ class AppointmentModel {
             }
 
             if(result && endDayHour !== undefined) {
-                result = compareDateWithEndDayHour(comparableStartDate, comparableEndDate, startDayHour, endDayHour, appointmentTakesAllDay, max);
+                result = compareDateWithEndDayHour(comparableStartDate, comparableEndDate, startDayHour, endDayHour, appointmentTakesAllDay, appointmentTakesSeveralDays, max, min);
             }
 
             if(result && useRecurrence && !recurrenceRule) {
@@ -526,7 +530,7 @@ class AppointmentModel {
     }
 
     _isEndDateWrong(appointment, startDate, endDate) {
-        return !endDate || isNaN(endDate.getTime()) || startDate.getTime() >= endDate.getTime();
+        return !endDate || isNaN(endDate.getTime()) || startDate.getTime() > endDate.getTime();
     }
 
     add(data, tz) {

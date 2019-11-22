@@ -11,9 +11,11 @@ import messageLocalization from "../localization/message";
 import Promise from "../core/polyfills/promise";
 import { fromPromise, Deferred } from "../core/utils/deferred";
 
-const VALIDATION_STATUS_VALID = "valid",
-    VALIDATION_STATUS_INVALID = "invalid",
-    VALIDATION_STATUS_PENDING = "pending";
+const STATUS = {
+    valid: 'valid',
+    invalid: 'invalid',
+    pending: 'pending'
+};
 
 class BaseRuleValidator {
     constructor() {
@@ -235,6 +237,8 @@ class CustomRuleValidator extends BaseRuleValidator {
      * @type_function_param1_field2 rule:object
      * @type_function_param1_field3 validator:object
      * @type_function_param1_field4 data:object
+     * @type_function_param1_field5 column:object
+     * @type_function_param1_field6 formItem:object
      */
     /**
      * @name CustomRule.message
@@ -257,14 +261,14 @@ class CustomRuleValidator extends BaseRuleValidator {
         }
         const validator = rule.validator,
             dataGetter = validator && typeUtils.isFunction(validator.option) && validator.option("dataGetter"),
-            data = typeUtils.isFunction(dataGetter) && dataGetter(),
+            extraParams = typeUtils.isFunction(dataGetter) && dataGetter(),
             params = {
                 value: value,
                 validator: validator,
                 rule: rule
             };
-        if(data) {
-            params.data = data;
+        if(extraParams) {
+            extend(params, extraParams);
         }
         return rule.validationCallback(params);
     }
@@ -289,6 +293,8 @@ class AsyncRuleValidator extends CustomRuleValidator {
      * @type_function_param1_field2 rule:object
      * @type_function_param1_field3 validator:object
      * @type_function_param1_field4 data:object
+     * @type_function_param1_field5 column:object
+     * @type_function_param1_field6 formItem:object
      */
     /**
      * @name AsyncRule.message
@@ -310,20 +316,18 @@ class AsyncRuleValidator extends CustomRuleValidator {
             extend(rule, { reevaluate: true });
         }
         if(rule.ignoreEmptyValue && this._isValueEmpty(value)) {
-            return new Promise(function(resolve) {
-                resolve(true);
-            });
+            return true;
         }
         const validator = rule.validator,
             dataGetter = validator && typeUtils.isFunction(validator.option) && validator.option("dataGetter"),
-            data = typeUtils.isFunction(dataGetter) && dataGetter(),
+            extraParams = typeUtils.isFunction(dataGetter) && dataGetter(),
             params = {
                 value: value,
                 validator: validator,
                 rule: rule
             };
-        if(data) {
-            params.data = data;
+        if(extraParams) {
+            extend(params, extraParams);
         }
         const callbackResult = rule.validationCallback(params);
         if(!typeUtils.isPromise(callbackResult)) {
@@ -577,7 +581,7 @@ const GroupConfig = Class.inherit({
              * @name dxValidationGroupResult.status
              * @type Enums.ValidationStatus
              */
-            status: VALIDATION_STATUS_VALID,
+            status: STATUS.valid,
             /**
              * @name dxValidationGroupResult.complete
              * @type Promise<dxValidationGroupResult>
@@ -594,20 +598,20 @@ const GroupConfig = Class.inherit({
                 result.brokenRules = result.brokenRules.concat(validatorResult.brokenRules);
             }
             result.validators.push(validator);
-            if(validatorResult.status === VALIDATION_STATUS_PENDING) {
+            if(validatorResult.status === STATUS.pending) {
                 this._addPendingValidator(validator);
             }
             this._subscribeToChangeEvents(validator);
         });
         if(this._pendingValidators.length) {
-            result.status = VALIDATION_STATUS_PENDING;
+            result.status = STATUS.pending;
         } else {
-            result.status = result.isValid ? VALIDATION_STATUS_VALID : VALIDATION_STATUS_INVALID;
+            result.status = result.isValid ? STATUS.valid : STATUS.invalid;
             this._unsubscribeFromAllChangeEvents();
             this._raiseValidatedEvent(result);
         }
         this._updateValidationInfo(result);
-        return result;
+        return extend({}, this._validationInfo.result);
     },
 
     _subscribeToChangeEvents(validator) {
@@ -628,7 +632,7 @@ const GroupConfig = Class.inherit({
 
     _updateValidationInfo(result) {
         this._validationInfo.result = result;
-        if(result.status !== VALIDATION_STATUS_PENDING) {
+        if(result.status !== STATUS.pending) {
             return;
         }
         if(!this._validationInfo.deferred) {
@@ -681,7 +685,7 @@ const GroupConfig = Class.inherit({
     },
 
     _onValidatorStatusChanged(result) {
-        if(result.status === VALIDATION_STATUS_PENDING) {
+        if(result.status === STATUS.pending) {
             this._addPendingValidator(result.validator);
             return;
         }
@@ -696,8 +700,8 @@ const GroupConfig = Class.inherit({
             if(!this._validationInfo.result) {
                 return;
             }
-            this._validationInfo.result.status = this._validationInfo.result.brokenRules.length === 0 ? VALIDATION_STATUS_VALID : VALIDATION_STATUS_INVALID;
-            this._validationInfo.result.isValid = this._validationInfo.result.status === VALIDATION_STATUS_VALID;
+            this._validationInfo.result.status = this._validationInfo.result.brokenRules.length === 0 ? STATUS.valid : STATUS.invalid;
+            this._validationInfo.result.isValid = this._validationInfo.result.status === STATUS.valid;
             const res = extend({}, this._validationInfo.result, { complete: null }),
                 deferred = this._validationInfo.deferred;
             this._resetValidationInfo();
@@ -783,6 +787,18 @@ const ValidationEngine = {
             return result[0];
         }
         // TODO: consider throwing exception here, as it causes quite strange and hardly diagnostable behaviour
+    },
+
+    findGroup($element, model) {
+        // try to find out if this control is child of validation group
+        const $dxGroup = $element.parents(".dx-validationgroup").first();
+
+        if($dxGroup.length) {
+            return $dxGroup.dxValidationGroup("instance");
+        }
+
+        // Trick to be able to securely get ViewModel instance ($data) in Knockout
+        return model;
     },
 
     initGroups() {
@@ -871,7 +887,7 @@ const ValidationEngine = {
              * @name dxValidatorResult.status
              * @type Enums.ValidationStatus
              */
-            status: VALIDATION_STATUS_VALID,
+            status: STATUS.valid,
             /**
              * @name dxValidatorResult.complete
              * @type Promise<dxValidatorResult>
@@ -931,33 +947,47 @@ const ValidationEngine = {
                 name
             });
         }
-        result.status = result.pendingRules ? VALIDATION_STATUS_PENDING : (result.isValid ? VALIDATION_STATUS_VALID : VALIDATION_STATUS_INVALID);
+        result.status = result.pendingRules ? STATUS.pending : (result.isValid ? STATUS.valid : STATUS.invalid);
         return result;
     },
 
     _validateAsyncRules({ result, value, items, name }) {
         const asyncResults = [];
-        result.pendingRules = [];
         each(items, (_, item) => {
-            result.pendingRules.push(item.rule);
-            const asyncResult = item.ruleValidator.validate(value, item.rule).then((res) => {
-                const ruleResult = this._getPatchedRuleResult(res);
+            const validateResult = item.ruleValidator.validate(value, item.rule);
+            if(!typeUtils.isPromise(validateResult)) {
                 this._updateRuleConfig({
                     rule: item.rule,
-                    ruleResult,
+                    ruleResult: this._getPatchedRuleResult(validateResult),
                     validator: item.ruleValidator,
                     name
                 });
-                return ruleResult;
-            });
-            asyncResults.push(asyncResult);
+            } else {
+                if(!result.pendingRules) {
+                    result.pendingRules = [];
+                }
+                result.pendingRules.push(item.rule);
+                const asyncResult = validateResult.then((res) => {
+                    const ruleResult = this._getPatchedRuleResult(res);
+                    this._updateRuleConfig({
+                        rule: item.rule,
+                        ruleResult,
+                        validator: item.ruleValidator,
+                        name
+                    });
+                    return ruleResult;
+                });
+                asyncResults.push(asyncResult);
+            }
         });
-        result.complete = Promise.all(asyncResults).then((values) => {
-            return this._getAsyncRulesResult({
-                result,
-                values
+        if(asyncResults.length) {
+            result.complete = Promise.all(asyncResults).then((values) => {
+                return this._getAsyncRulesResult({
+                    result,
+                    values
+                });
             });
-        });
+        }
         return result;
     },
 
@@ -1005,7 +1035,7 @@ const ValidationEngine = {
         });
         result.pendingRules = null;
         result.complete = null;
-        result.status = result.isValid ? VALIDATION_STATUS_VALID : VALIDATION_STATUS_INVALID;
+        result.status = result.isValid ? STATUS.valid : STATUS.invalid;
         return result;
     },
 
@@ -1029,6 +1059,65 @@ const ValidationEngine = {
                 this.removeGroup(group);
             }
         }
+    },
+
+    initValidationOptions(options) {
+        const initedOptions = {};
+
+        if(options) {
+            const syncOptions = ['isValid', 'validationStatus', 'validationError', 'validationErrors'];
+
+            syncOptions.forEach((prop) => {
+                if(prop in options) {
+                    extend(initedOptions,
+                        this.synchronizeValidationOptions({ name: prop, value: options[prop] }, options)
+                    );
+                }
+            });
+        }
+
+        return initedOptions;
+    },
+
+    synchronizeValidationOptions({ name, value }, options) {
+        switch(name) {
+            case 'validationStatus': {
+                const isValid = value === STATUS.valid || value === STATUS.pending;
+
+                return options.isValid !== isValid ? { isValid } : {};
+            }
+            case 'isValid': {
+                const { validationStatus } = options;
+                let newStatus = validationStatus;
+
+                if(value && validationStatus === STATUS.invalid) {
+                    newStatus = STATUS.valid;
+                } else if(!value && validationStatus !== STATUS.invalid) {
+                    newStatus = STATUS.invalid;
+                }
+
+                return newStatus !== validationStatus ? { validationStatus: newStatus } : {};
+            }
+            case 'validationErrors': {
+                let validationError = !value || !value.length ? null : value[0];
+
+                return options.validationError !== validationError ? { validationError } : {};
+            }
+            case 'validationError': {
+                const { validationErrors } = options;
+
+                if(!value && validationErrors) {
+                    return { validationErrors: null };
+                } else if(value && !validationErrors) {
+                    return { validationErrors: [value] };
+                } else if(value && validationErrors && value !== validationErrors[0]) {
+                    validationErrors[0] = value;
+                    return { validationErrors: validationErrors.slice() };
+                }
+            }
+        }
+
+        return {};
     },
 
     /**

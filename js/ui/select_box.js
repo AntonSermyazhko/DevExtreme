@@ -100,8 +100,10 @@ var SelectBox = DropDownList.inherit({
                 parent.end && parent.end.apply(this, arguments);
             },
             escape: function() {
-                parent.escape && parent.escape.apply(this, arguments);
+                var result = parent.escape && parent.escape.apply(this, arguments);
                 this._cancelEditing();
+
+                return isDefined(result) ? result : true;
             },
             enter: function(e) {
                 var isOpened = this.option("opened");
@@ -399,10 +401,11 @@ var SelectBox = DropDownList.inherit({
 
         dataSourceIsLoaded.done((function() {
             var selectedIndex = this._getSelectedIndex(),
+                hasPages = this._dataSource.pageSize(),
                 isLastPage = this._dataSource.isLastPage(),
                 isLastItem = selectedIndex === this._items().length - 1;
 
-            if(!isLastPage && isLastItem && step > 0) {
+            if(hasPages && !isLastPage && isLastItem && step > 0) {
                 if(!this._popup) {
                     this._createPopup();
                 }
@@ -417,6 +420,10 @@ var SelectBox = DropDownList.inherit({
         var isUnknownItem = !this._isCustomValueAllowed() && (item === undefined);
 
         this.callBase(isUnknownItem ? null : item);
+
+        if(!isUnknownItem) {
+            this._setListOption("selectedItem", this.option("selectedItem"));
+        }
     },
 
     _isCustomValueAllowed: function() {

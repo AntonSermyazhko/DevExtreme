@@ -1,11 +1,13 @@
 var $ = require("../core/renderer"),
     windowUtils = require("../core/utils/window"),
     window = windowUtils.getWindow(),
+    getPublicElement = require("../core/utils/dom").getPublicElement,
     domAdapter = require("../core/dom_adapter"),
     eventsEngine = require("../events/core/events_engine"),
     registerComponent = require("../core/component_registrator"),
     commonUtils = require("../core/utils/common"),
     extend = require("../core/utils/extend").extend,
+    browser = require("../core/utils/browser"),
     translator = require("../animation/translator"),
     positionUtils = require("../animation/position"),
     typeUtils = require("../core/utils/type"),
@@ -49,6 +51,8 @@ var POPOVER_CLASS = "dx-popover",
         "bottom": "borderBottomWidth"
     },
 
+    isFirefox = browser.mozilla,
+
     getEventName = function(that, optionName) {
         var optionValue = that.option(optionName);
 
@@ -68,6 +72,7 @@ var POPOVER_CLASS = "dx-popover",
             handler,
             eventName,
             target = that.option("target"),
+            isSelector = typeUtils.isString(target),
             event = getEventName(that, name + "Event");
 
         if(!event || that.option("disabled")) {
@@ -91,12 +96,14 @@ var POPOVER_CLASS = "dx-popover",
             action({ event: e, target: $(e.currentTarget) });
         };
 
-        if(target.jquery || target.nodeType || typeUtils.isWindow(target)) {
-            that["_" + name + "EventHandler"] = undefined;
-            eventsEngine.on(target, eventName, handler);
-        } else {
-            that["_" + name + "EventHandler"] = handler;
+        var EVENT_HANDLER_NAME = "_" + name + "EventHandler";
+        if(isSelector) {
+            that[EVENT_HANDLER_NAME] = handler;
             eventsEngine.on(domAdapter.getDocument(), eventName, target, handler);
+        } else {
+            var targetElement = getPublicElement($(target));
+            that[EVENT_HANDLER_NAME] = undefined;
+            eventsEngine.on(targetElement, eventName, handler);
         }
     },
     detachEvent = function(that, target, name, event) {
@@ -108,10 +115,11 @@ var POPOVER_CLASS = "dx-popover",
 
         eventName = eventUtils.addNamespace(eventName, that.NAME);
 
-        if(that["_" + name + "EventHandler"]) {
-            eventsEngine.off(domAdapter.getDocument(), eventName, target, that["_" + name + "EventHandler"]);
+        var EVENT_HANDLER_NAME = "_" + name + "EventHandler";
+        if(that[EVENT_HANDLER_NAME]) {
+            eventsEngine.off(domAdapter.getDocument(), eventName, target, that[EVENT_HANDLER_NAME]);
         } else {
-            eventsEngine.off($(target), eventName);
+            eventsEngine.off(getPublicElement($(target)), eventName);
         }
     };
 
@@ -565,6 +573,15 @@ var Popover = Popup.inherit({
             verticalWeight = Math.abs(WEIGHT_OF_SIDES[my.v] - weightSign * WEIGHT_OF_SIDES[at.v]);
 
         return horizontalWeight > verticalWeight ? at.h : at.v;
+    },
+
+    _resetContentHeight: function() {
+        this.callBase();
+        if(isFirefox) { // T655040
+            var originalOverflow = this._$popupContent.css("overflow");
+            this._$popupContent.css("overflow", "visible");
+            this._$popupContent.css("overflow", originalOverflow);
+        }
     },
 
     _isVerticalSide: function(side) {

@@ -66,6 +66,11 @@ var DateBox = DropDownEditor.inherit({
         });
     },
 
+    _renderButtonContainers: function() {
+        this.callBase.apply(this, arguments);
+        this._strategy.customizeButtons();
+    },
+
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
             /**
@@ -301,10 +306,9 @@ var DateBox = DropDownEditor.inherit({
 
     _init: function() {
         this._initStrategy();
-        this.$element().addClass(DX_INVALID_BADGE_CLASS);
         this.option(extend({}, this._strategy.getDefaultOptions(), this._userOptions));
         delete this._userOptions;
-
+        this._skipCustomValidation = false;
         this.callBase();
     },
 
@@ -423,9 +427,9 @@ var DateBox = DropDownEditor.inherit({
         $longestValueElement.remove();
 
         var clearButtonWidth = 0;
-        if(this.option("showClearButton") && $input.val() === "") {
-            var $clearButton = $dateBox.find("." + DX_CLEAR_BUTTON_CLASS);
-            clearButtonWidth = parseFloat(window.getComputedStyle($clearButton.get(0)).width);
+        if(this.option("showClearButton") && $input.val() === "" && !this.option("readOnly")) {
+            var clearButtonElement = $dateBox.find("." + DX_CLEAR_BUTTON_CLASS).get(0);
+            clearButtonWidth = parseFloat(window.getComputedStyle(clearButtonElement).width);
         }
 
         var curWidth = parseFloat(window.getComputedStyle(inputElement).width) - clearButtonWidth;
@@ -613,7 +617,10 @@ var DateBox = DropDownEditor.inherit({
     },
 
     _validateValue: function(value) {
-        return this._applyInternalValidation(value) && this._applyCustomValidation(value);
+        const internalResult = this._applyInternalValidation(value),
+            customResult = !this._skipCustomValidation ? this._applyCustomValidation(value) : true;
+        this._skipCustomValidation = false;
+        return internalResult && customResult;
     },
 
     _applyInternalValidation(value) {
@@ -716,7 +723,7 @@ var DateBox = DropDownEditor.inherit({
 
     _applyButtonHandler: function(e) {
         var value = this._strategy.getValue();
-        if(this._validateValue(value)) {
+        if(this._applyInternalValidation(value)) {
             this.dateValue(value, e.event);
         }
         this.callBase();
@@ -750,6 +757,7 @@ var DateBox = DropDownEditor.inherit({
                 this._refreshFormatClass();
                 this._renderPopupWrapper();
                 this._formatValidationIcon();
+                this._updateValue();
                 break;
             case "placeholder":
                 this._renderPlaceholder();
@@ -778,9 +786,7 @@ var DateBox = DropDownEditor.inherit({
                 this.option("applyValueMode", applyValueMode);
                 break;
             case "applyValueMode":
-                this._suppressDeprecatedWarnings();
                 this.option("closeOnValueChange", args.value === "instantly");
-                this._resumeDeprecatedWarnings();
                 this.callBase.apply(this, arguments);
                 break;
             case "text":
@@ -855,6 +861,8 @@ var DateBox = DropDownEditor.inherit({
     },
 
     reset: function() {
+        const defaultOptions = this._getDefaultOptions();
+        this._skipCustomValidation = defaultOptions.value === this.dateOption("value");
         this.callBase();
         this._updateValue(this.dateOption("value"));
     }

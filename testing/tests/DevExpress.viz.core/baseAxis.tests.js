@@ -260,6 +260,67 @@ QUnit.test("Get options", function(assert) {
     }, "Options should be correct");
 });
 
+QUnit.test("Get options - axis type and data types are in lower case", function(assert) {
+    this.updateOptions({
+        type: "TYPE_TYPE",
+        argumentType: "ARGUMENT_TYPE",
+        valueType: "VALUE_TYPE"
+    });
+
+    assert.deepEqual(this.axis.getOptions(), {
+        type: "type_type",
+        argumentType: "argument_type",
+        valueType: "value_type",
+        isHorizontal: true,
+        hoverMode: "none",
+        label: {
+            minSpacing: 5,
+            visible: true
+        },
+        position: "bottom",
+        grid: {},
+        minorGrid: {},
+        tick: {},
+        minorTick: {},
+        title: {},
+        marker: {},
+        _customVisualRange: undefined
+    }, "Options should be correct");
+});
+
+QUnit.test("Get options after resetTypes - axis type and data types are in lower case", function(assert) {
+    this.updateOptions({
+        type: "TYPE_TYPE",
+        argumentType: "ARGUMENT_TYPE",
+        valueType: "VALUE_TYPE"
+    });
+
+    this.axis.setTypes("NEW_TYPE", "NEW_ARGUMENT_TYPE", "argumentType");
+    this.axis.setTypes("NEW_TYPE", "NEW_VALUE_TYPE", "valueType");
+    this.axis.resetTypes("argumentType");
+    this.axis.resetTypes("valueType");
+
+    assert.deepEqual(this.axis.getOptions(), {
+        type: "type_type",
+        argumentType: "argument_type",
+        valueType: "value_type",
+        isHorizontal: true,
+        hoverMode: "none",
+        label: {
+            minSpacing: 5,
+            visible: true
+        },
+        position: "bottom",
+        grid: {},
+        minorGrid: {},
+        tick: {},
+        minorTick: {},
+        title: {},
+        marker: {},
+        _customVisualRange: undefined
+    }, "Options should be correct");
+});
+
 QUnit.test("GetMarginOptions when they are not set", function(assert) {
     this.updateOptions({});
 
@@ -643,7 +704,7 @@ QUnit.test("Validate, argumentType - numeric, max and min is wrong specified", f
     assert.equal(secondIdError, "E2106");
     assert.equal(dxErrors[secondIdError], "Invalid visible range");
 
-    assert.equal(this.axis.getOptions().dataType, "wrongType");
+    assert.equal(this.axis.getOptions().dataType, "wrongtype");
     assert.deepEqual(this.axis.getOptions().min, undefined);
     assert.deepEqual(this.axis.getOptions().max, undefined);
 });
@@ -1416,6 +1477,31 @@ QUnit.test("Margins for one point (dateTime)", function(assert) {
     });
 });
 
+// T829705
+QUnit.test("Margins for one aggregated point (dateTime)", function(assert) {
+    var date = new Date('2018/05/02');
+    this.testMargins(assert, {
+        isArgumentAxis: true,
+        marginOptions: {
+            checkInterval: true
+        },
+        options: {
+            dataType: "datetime",
+            valueMarginsEnabled: true
+        },
+        ticks: [date],
+        range: {
+            interval: 1 * 24 * 60 * 60 * 1000, // aggregation emalation
+            min: date,
+            max: date
+        },
+        expectedRange: {
+            interval: 0
+        },
+        expectedVisibleArea: { min: 200, max: 500 }
+    });
+});
+
 QUnit.test("maxValueMargin - apply margins to the max", function(assert) {
     this.testMargins(assert, {
         options: {
@@ -1964,6 +2050,29 @@ QUnit.test("marginOptions.size and marginOptions.percentStick, min != 1, max = 1
     });
 });
 
+QUnit.test("marginOptions.percentStick, min != 1, max = 1 - calculate custom margin", function(assert) {
+    this.testMargins(assert, {
+        options: {
+            valueMarginsEnabled: true,
+            maxValueMargin: 0.1
+        },
+        marginOptions: {
+            size: 100,
+            percentStick: true
+        },
+        range: {
+            min: 0.4,
+            max: 1
+        },
+        ticks: [0.4, 1],
+        expectedRange: {
+            minVisible: 0.268,
+            maxVisible: 1.06
+        },
+        isArgumentAxis: false
+    });
+});
+
 QUnit.test("marginOptions.size and marginOptions.percentStick, min = -1 - do not calculate min margin", function(assert) {
     this.testMargins(assert, {
         options: {
@@ -1981,6 +2090,29 @@ QUnit.test("marginOptions.size and marginOptions.percentStick, min = -1 - do not
         expectedRange: {
             minVisible: -1,
             maxVisible: -0.28
+        },
+        isArgumentAxis: false
+    });
+});
+
+QUnit.test("marginOptions.percentStick, min = -1 - calculate calculate custom min margin", function(assert) {
+    this.testMargins(assert, {
+        options: {
+            valueMarginsEnabled: true,
+            minValueMargin: 0.1
+        },
+        marginOptions: {
+            size: 100,
+            percentStick: true
+        },
+        range: {
+            min: -1,
+            max: -0.4
+        },
+        ticks: [-1, -0.4],
+        expectedRange: {
+            minVisible: -1.06,
+            maxVisible: -0.268
         },
         isArgumentAxis: false
     });
@@ -3656,15 +3788,41 @@ QUnit.test("Sort datetime categories", function(assert) {
 
 // T810801
 QUnit.test("Argument axis categories sorting. Categories option - sort validated categories", function(assert) {
-    this.updateOptions({ type: "discrete", valueType: "numeric", categories: [4, 3, 2, 1, 0] });
+    this.updateOptions({ type: "discrete", valueType: "numeric" });
     this.axis.validate();
 
     this.axis.setBusinessRange({
-        categories: [2, 3, 5, 1]
-    }, false, undefined, [1, 2, 3, 4, 0]);
+        categories: [2, 3, 0, 5, 1]
+    }, false, undefined, [1, 2, 3, 4]);
 
     const businessRange = this.translator.updateBusinessRange.lastCall.args[0];
     assert.deepEqual(businessRange.categories, [1, 2, 3, 4, 0, 5]);
+});
+
+// T822702
+QUnit.test("Argument axis categories sorting. Categories option - sort validated categories. DateTime", function(assert) {
+    const categoriesFromDataSource = [
+        new Date(2016, 9, 4),
+        new Date(2016, 9, 5),
+        new Date(2016, 9, 6),
+        new Date(2016, 9, 7),
+        new Date(2016, 9, 3)
+    ];
+    const rightCategoriesOrder = [
+        new Date(2016, 9, 3),
+        new Date(2016, 9, 4),
+        new Date(2016, 9, 5),
+        new Date(2016, 9, 6),
+        new Date(2016, 9, 7)
+    ];
+
+    this.updateOptions({ type: "discrete", valueType: "datetime" });
+    this.axis.validate();
+
+    this.axis.setBusinessRange({ categories: categoriesFromDataSource }, false, undefined, rightCategoriesOrder);
+
+    const businessRange = this.translator.updateBusinessRange.lastCall.args[0];
+    assert.deepEqual(businessRange.categories, rightCategoriesOrder);
 });
 
 QUnit.test("Set logarithm base for logarithmic axis", function(assert) {

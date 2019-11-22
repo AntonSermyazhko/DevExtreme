@@ -2733,7 +2733,6 @@ QUnit.testStart(function() {
                 assert.equal(new Color($appointment.css("backgroundColor")).toHex(), "#ff0000", "Resource color is applied");
                 assert.ok($appointment.attr("data-groupid-1"), "Resource data attribute is defined");
                 assert.ok($appointment.hasClass("dx-scheduler-appointment-recurrence"), "Recurrent class is defined");
-                assert.ok($appointment.hasClass("dx-draggable"), "Draggable class is defined");
                 assert.ok($appointment.hasClass("dx-resizable"), "Resizable class is defined");
             },
             currentDate: new Date(2015, 1, 9)
@@ -2911,7 +2910,7 @@ QUnit.testStart(function() {
             currentView: "week"
         });
 
-        assert.equal(workSpaceSpy.callCount, 1, "Resources aren't required");
+        assert.equal(workSpaceSpy.callCount, 2, "Resources aren't required");
     });
 
     QUnit.test("onAppointmentClick should fires when appointment is clicked", function(assert) {
@@ -4134,7 +4133,7 @@ QUnit.testStart(function() {
             currentDate: new Date(2015, 4, 24),
             views: [{
                 type: "week",
-                appointmentTooltipTemplate: function(item, container) {
+                appointmentTooltipTemplate: function(model, index, container) {
                     assert.equal(isRenderer(container), !!config().useJQuery, "element is correct");
                     countCallTemplate2++;
                 }

@@ -56,7 +56,9 @@ fixture `Appointment popup form`
             .eql(APPOINTMENT_TEXT)
 
             .click(scheduler.appointmentPopup.cancelButton)
-            .doubleClick(scheduler.getAppointment(APPOINTMENT_TEXT).element)
+
+            .click(scheduler.getAppointment(APPOINTMENT_TEXT).element)
+            .click(scheduler.appointmentTooltip.getListItem(APPOINTMENT_TEXT).element)
 
             .expect(Selector(TEXT_EDITOR_CLASS).exists)
             .eql(false);

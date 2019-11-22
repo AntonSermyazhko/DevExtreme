@@ -25,7 +25,8 @@ var DROP_DOWN_EDITOR_BUTTON_ICON = "dx-dropdowneditor-icon",
     DROP_DOWN_EDITOR_BUTTON_CLASS = "dx-dropdowneditor-button",
     DROP_DOWN_EDITOR_OVERLAY = "dx-dropdowneditor-overlay",
     DROP_DOWN_EDITOR_ACTIVE = "dx-dropdowneditor-active",
-    TEXT_EDITOR_INPUT_CLASS = "dx-texteditor-input";
+    TEXT_EDITOR_INPUT_CLASS = "dx-texteditor-input",
+    DROP_DOWN_EDITOR_FIELD_TEMPLATE_WRAPPER = "dx-dropdowneditor-field-template-wrapper";
 
 var TAB_KEY_CODE = "Tab",
     ESC_KEY_CODE = "Escape";
@@ -512,17 +513,30 @@ QUnit.test("native focus event should not be triggered if dropdown button clicke
     assert.equal(focusinHandler.callCount, 0, "native focus should not be triggered");
 });
 
-QUnit.test("focusout should not be fired after click on the dropDownButton", function(assert) {
+QUnit.testInActiveWindow("focusout should not be fired after click on the dropDownButton when editor is focused", function(assert) {
+    var $dropDownEditor = $("#dropDownEditorLazy").dxDropDownEditor({
+            focusStateEnabled: true
+        }),
+        $dropDownButton = $dropDownEditor.find(".dx-dropdowneditor-button");
+
+    $dropDownEditor.dxDropDownEditor("focus");
+
+    var e = $.Event("mousedown");
+    $dropDownButton.trigger(e);
+
+    assert.ok(e.isDefaultPrevented(), "focusout was prevented");
+});
+
+QUnit.testInActiveWindow("focusout should be fired after click on the dropDownButton when editor isn't focused (T823431)", function(assert) {
     var $dropDownEditor = $("#dropDownEditorLazy").dxDropDownEditor({
             focusStateEnabled: true
         }),
         $dropDownButton = $dropDownEditor.find(".dx-dropdowneditor-button");
 
     var e = $.Event("mousedown");
-
     $dropDownButton.trigger(e);
 
-    assert.ok(e.isDefaultPrevented(), "focusout was prevented");
+    assert.notOk(e.isDefaultPrevented(), "focusout was not prevented");
 });
 
 QUnit.test("focusout should not be fired on valueChanged", function(assert) {
@@ -638,6 +652,19 @@ QUnit.test("Enter and escape key press does not prevent default when popup in no
     this.keyboard.keyDown("enter");
 
     assert.equal(prevented, 0, "defaults has not prevented on enter and escape keys");
+});
+
+QUnit.test("Escape key press should be handled by a children keyboard processor", function(assert) {
+    const handler = sinon.stub();
+
+    this.dropDownEditor
+        ._keyboardProcessor
+        .attachChildProcessor()
+        .reinitialize(handler, this.dropDownEditor);
+
+    this.keyboard.keyDown("esc");
+
+    assert.ok(handler.calledOnce, "Children keyboard processor can process the 'esc' key pressing");
 });
 
 QUnit.test("Home and end key press prevent default when popup in opened", function(assert) {
@@ -1018,6 +1045,45 @@ QUnit.testInActiveWindow("widget should detach focus events before fieldTemplate
     assert.strictEqual(focusOutSpy.callCount, 0, "there's no focus outs from deleted field container");
 });
 
+QUnit.test("fieldTemplate item element should have 100% width (T826516)", (assert) => {
+    const $dropDownEditor = $("#dropDownEditorLazy").dxDropDownEditor({
+        dataSource: [1, 2],
+        width: 500,
+        fieldTemplate: function(value, container) {
+            const $textBoxContainer = $("<div>").appendTo(container);
+            $("<div>").dxTextBox().appendTo($textBoxContainer);
+        }
+    });
+
+    const $fieldTemplateWrapper = $dropDownEditor.find(`.${DROP_DOWN_EDITOR_FIELD_TEMPLATE_WRAPPER}`);
+    const $input = $dropDownEditor.find(`.${TEXT_EDITOR_INPUT_CLASS}`);
+
+    assert.roughEqual($fieldTemplateWrapper.outerWidth(), $input.outerWidth(), 1);
+});
+
+QUnit.test("fieldTemplate item element should have 100% width with field template wrapper (T826516)", (assert) => {
+    const $dropDownEditor = $("#dropDownEditorLazy").dxDropDownEditor({
+        dataSource: [1, 2],
+        width: 500,
+        fieldTemplate: "field",
+        integrationOptions: {
+            templates: {
+                "field": {
+                    render(args) {
+                        const $element = $("<div>")
+                            .addClass("dx-template-wrapper");
+                        $("<div>").dxTextBox().appendTo($element);
+                        $element.appendTo(args.container);
+                    }
+                }
+            }
+        },
+    });
+
+    const $fieldTemplateWrapper = $dropDownEditor.find(`.${DROP_DOWN_EDITOR_FIELD_TEMPLATE_WRAPPER}`);
+    const $input = $dropDownEditor.find(`.${TEXT_EDITOR_INPUT_CLASS}`);
+    assert.roughEqual($fieldTemplateWrapper.outerWidth(), $input.outerWidth(), 1);
+});
 
 QUnit.module("options");
 

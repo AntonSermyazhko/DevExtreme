@@ -77,7 +77,8 @@ QUnit.testStart(function() {
         <div id="overlayWithWrongTemplateName">\
             <div data-options="dxTemplate: { name: \'wrongName\' }">testContent</div>\
         </div>\
-        \
+        <div id="containerT821559" style="height:300px; width:200px;">\
+        </div>\
         <div id="widget"></div>\
         \
         <script type="text/html" id="focusableTemplate">\
@@ -714,6 +715,50 @@ testModule("visibility", moduleConfig, () => {
         } finally {
             domUtils.triggerResizeEvent = triggerFunction;
         }
+    });
+
+    test("overlay should not be shown if e.cancel == true in the onShowing event handler (T825865)", (assert) => {
+        // e.cancel is a temporary solution and it is not documented.
+        // That is why it should not be used in overlays with integrations such as Knockout, Angular etc,
+        // until we reconsider onShowing implementation in future versions
+        fx.off = false;
+        let showingCounter = 0;
+        const onHidingCounter = sinon.stub(),
+            onHiddenCounter = sinon.stub(),
+            onShownCounter = sinon.stub(),
+            $overlay = $("#overlay").dxOverlay({
+                onShowing: function(e) {
+                    showingCounter++;
+                    e.cancel = true;
+                },
+                onShown: onShownCounter,
+                onHiding: onHidingCounter,
+                onHidden: onHiddenCounter
+            }),
+            overlay = $overlay.dxOverlay("instance"),
+            done = assert.async();
+
+        overlay.on("shown", onShownCounter)
+            .on("hiding", onHidingCounter)
+            .on("hidden", onHiddenCounter);
+
+        overlay.show().done(function(result) {
+            const $content = $(overlay.$content()),
+                $wrapper = $content.parent();
+
+            assert.notOk(result, "result === false");
+            assert.ok($wrapper.closest("#overlay").length === 1, "overlay wrapper is inside the overlay root element");
+            assert.ok($wrapper.is(":hidden"));
+            assert.ok($content.is(":hidden"));
+            assert.ok($overlay.is(":hidden"));
+            assert.notOk(overlay.option("visible"), "visible === false");
+            assert.equal(showingCounter, 1, "onShowing should be called only once");
+            assert.notOk(onShownCounter.called, "onShown should not be called");
+            assert.notOk(onHidingCounter.called, "onHiding should not be called");
+            assert.notOk(onHiddenCounter.called, "onHidden should not be called");
+
+            done();
+        });
     });
 });
 
@@ -2182,6 +2227,44 @@ testModule("container", moduleConfig, () => {
         assert.strictEqual($shader.height(), $container.height(), "shader height is correct");
     });
 
+    test("shader should stretch across container when target is container(T821559)", (assert) => {
+        const $container = $("#containerT821559");
+
+        const $overlay = $("#overlay").dxOverlay({
+            container: $container,
+            shading: true,
+            position: {
+                of: $container
+            }
+        });
+
+        $overlay.dxOverlay("show");
+
+        const $shader = $container.find(toSelector(OVERLAY_SHADER_CLASS));
+        assert.strictEqual($shader.height(), $container.height(), "shader height is correct");
+        assert.strictEqual($shader.width(), $container.width(), "shader width is correct");
+    });
+
+    test("overlay should render inside of container when target is container(T821559)", (assert) => {
+        const $container = $("#containerT821559");
+
+        const $overlay = $("#overlay").dxOverlay({
+            container: $container,
+            shading: false,
+            position: {
+                of: $container
+            },
+            width: "50%",
+            height: "50%"
+        });
+
+        $overlay.dxOverlay("show");
+
+        const $content = $container.find(toSelector(OVERLAY_CONTENT_CLASS));
+        assert.strictEqual($content.height(), $container.height() * 0.5, "overlay height is correct");
+        assert.strictEqual($content.width(), $container.width() * 0.5, "overlay width is correct");
+    });
+
     test("wrong position targeted container (B236074)", (assert) => {
         const $overlappedDiv = $("<div>").css({ width: 200, height: 150 });
         $overlappedDiv.appendTo("#qunit-fixture");
@@ -2283,22 +2366,23 @@ testModule("target", moduleConfig, () => {
                 return [];
             },
 
-            _setDefaultOptions: function() {
-                this.callBase();
-
-                this.option({
-                    position: { of: $(window) },
-                    animation: {
-                        show: {
-                            to: { position: { of: $(window) } },
-                            from: { position: { of: $(window) } }
-                        },
-                        hide: {
-                            to: { position: { of: $(window) } },
-                            from: { position: { of: $(window) } }
+            _getDefaultOptions: function() {
+                return $.extend(
+                    this.callBase(),
+                    {
+                        position: { of: $(window) },
+                        animation: {
+                            show: {
+                                to: { position: { of: $(window) } },
+                                from: { position: { of: $(window) } }
+                            },
+                            hide: {
+                                to: { position: { of: $(window) } },
+                                from: { position: { of: $(window) } }
+                            }
                         }
                     }
-                });
+                );
             }
 
         });

@@ -1,5 +1,6 @@
 import $ from "jquery";
 import { extend } from "core/utils/extend";
+import translator from "animation/translator";
 import devices from "core/devices";
 import "ui/scheduler/ui.scheduler";
 
@@ -69,6 +70,7 @@ export class SchedulerTestWrapper {
             getTitleText: (index = 0) => this.appointments.getAppointment(index).find(".dx-scheduler-appointment-title").text(),
             getAppointmentWidth: (index = 0) => this.appointments.getAppointment(index).get(0).getBoundingClientRect().width,
             getAppointmentHeight: (index = 0) => this.appointments.getAppointment(index).get(0).getBoundingClientRect().height,
+            getAppointmentPosition: (index = 0) => translator.locate($(this.appointments.getAppointment(index))),
 
             find: (text) => {
                 return this.appointments
@@ -124,7 +126,8 @@ export class SchedulerTestWrapper {
 
             dialog: {
                 clickEditSeries: () => $(".dx-dialog").find(".dx-dialog-button").eq(0).trigger("dxclick"),
-                clickEditAppointment: () => $(".dx-dialog").find(".dx-dialog-button").eq(1).trigger("dxclick")
+                clickEditAppointment: () => $(".dx-dialog").find(".dx-dialog-button").eq(1).trigger("dxclick"),
+                hide: () => $(".dx-dialog").find(".dx-closebutton.dx-button").trigger("dxclick")
             },
 
             getPopup: () => $(".dx-overlay-wrapper.dx-scheduler-appointment-popup"),
@@ -157,7 +160,8 @@ export class SchedulerTestWrapper {
             clickDoneButton: () => this.appointmentPopup.getDoneButton().trigger("dxclick"),
 
             getCancelButton: () => this.appointmentPopup.getPopup().find(".dx-popup-cancel"),
-            clickCancelButton: () => this.appointmentPopup.getCancelButton().trigger("dxclick")
+            clickCancelButton: () => this.appointmentPopup.getCancelButton().trigger("dxclick"),
+            saveAppointmentData: () => this.instance._appointmentPopup.saveEditData.call(this.instance._appointmentPopup),
         };
 
         this.appointmentForm = {
@@ -168,6 +172,8 @@ export class SchedulerTestWrapper {
             hasFormSingleColumn: () => this.appointmentPopup.getPopup().find(".dx-responsivebox").hasClass("dx-responsivebox-screen-xs"),
             getRecurrentAppointmentFormDialogButtons: () => $(".dx-dialog-buttons .dx-button"),
             clickFormDialogButton: (index = 0) => this.appointmentForm.getRecurrentAppointmentFormDialogButtons().eq(index).trigger("dxclick"),
+            getPendingEditorsCount: () => $(this.appointmentForm.getFormInstance().element()).find(".dx-validation-pending").length,
+            getInvalidEditorsCount: () => $(this.appointmentForm.getFormInstance().element()).find(".dx-invalid").length
         };
 
         this.workSpace = {
@@ -178,8 +184,16 @@ export class SchedulerTestWrapper {
 
             getDateTable: () => $(".dx-scheduler-date-table"),
             getDateTableHeight: () => this.workSpace.getDateTable().height(),
+
+            getRows: (index = 0) => $(".dx-scheduler-date-table-row").eq(index),
             getCells: () => $(".dx-scheduler-date-table-cell"),
-            getCell: (index) => this.workSpace.getCells().eq(index),
+            getCell: (rowIndex, cellIndex) => {
+                if(cellIndex !== undefined) {
+                    return $(".dx-scheduler-date-table-row").eq(rowIndex).find(".dx-scheduler-date-table-cell").eq(cellIndex);
+                }
+                return this.workSpace.getCells().eq(rowIndex);
+            },
+
             getAllDayCells: () => $(".dx-scheduler-all-day-table-cell"),
             getAllDayCell: (index) => this.workSpace.getAllDayCells().eq(index),
             getCellWidth: () => this.workSpace.getCells().eq(0).outerWidth(),
@@ -226,6 +240,9 @@ export class SchedulerTestWrapper {
     }
 
     option(name, value) {
+        if(value === undefined) {
+            return this.instance.option(name);
+        }
         this.instance.option(name, value);
     }
 

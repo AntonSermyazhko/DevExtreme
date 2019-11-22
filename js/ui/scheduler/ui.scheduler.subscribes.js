@@ -42,7 +42,7 @@ const subscribes = {
             startViewDate = this.appointmentTakesAllDay(appointmentData) ? dateUtils.trimTime(new Date(dateRange[0])) : dateRange[0],
             originalStartDate = options.originalStartDate || startDate,
             renderingStrategy = this.getLayoutManager().getRenderingStrategyInstance(),
-            firstDayOfWeek = this.option("firstDayOfWeek");
+            firstDayOfWeek = this.getFirstDayOfWeek();
 
         let recurrenceOptions = {
             rule: recurrenceRule,
@@ -89,7 +89,6 @@ const subscribes = {
 
         let itemResources = this._resourcesManager.getResourcesFromItem(appointmentData);
         allDay = this.appointmentTakesAllDay(appointmentData) && this._workSpace.supportAllDayRow();
-
         options.callback(this._getCoordinates(initialDates, dates, itemResources, allDay));
     },
 
@@ -150,13 +149,18 @@ const subscribes = {
         }).bind(this));
     },
 
+    getUpdatedData: function(options) {
+        return this._getUpdatedData({ data: options.data });
+    },
+
     updateAppointmentAfterDrag: function(options) {
         let target = options.data,
             updatedData = this._getUpdatedData(options),
             newCellIndex = this._workSpace.getDroppableCellIndex(),
             oldCellIndex = this._workSpace.getCellIndexByCoordinates(options.coordinates),
             becomeAllDay = this.fire("getField", "allDay", updatedData),
-            wasAllDay = this.fire("getField", "allDay", target);
+            wasAllDay = this.fire("getField", "allDay", target),
+            dragEvent = options.event;
 
         let appointment = extend({}, target, updatedData);
 
@@ -170,11 +174,11 @@ const subscribes = {
                 this._convertDatesByTimezoneBack(true, updatedData, appointment);
 
                 this._updateAppointment(target, appointment, function() {
-                    this._appointments.moveAppointmentBack();
-                });
-            }).bind(this));
+                    this._appointments.moveAppointmentBack(dragEvent);
+                }, dragEvent);
+            }).bind(this), undefined, undefined, dragEvent);
         } else {
-            this._appointments.moveAppointmentBack();
+            this._appointments.moveAppointmentBack(dragEvent);
         }
     },
 
@@ -332,6 +336,10 @@ const subscribes = {
         return this._getAppointmentsRenderingStrategy();
     },
 
+    getMaxAppointmentCountPerCellByType: function(isAllDay) {
+        return this.getRenderingStrategyInstance()._getMaxAppointmentCountPerCellByType(isAllDay);
+    },
+
     needCorrectAppointmentDates: function() {
         return this.getRenderingStrategyInstance().needCorrectAppointmentDates();
     },
@@ -342,10 +350,6 @@ const subscribes = {
 
     getWorkSpaceDateTableOffset: function() {
         return this.getWorkSpaceDateTableOffset();
-    },
-
-    allDayPanelToggled: function() {
-        this._appointments.updateDraggablesBoundOffsets();
     },
 
     formatDates: function(options) {
@@ -441,6 +445,10 @@ const subscribes = {
 
     supportCompactDropDownAppointments: function() {
         return this._workSpace._supportCompactDropDownAppointments();
+    },
+
+    isApplyCompactAppointmentOffset: function() {
+        return this._workSpace._isApplyCompactAppointmentOffset();
     },
 
     getGroupCount: function() {
@@ -553,7 +561,7 @@ const subscribes = {
             max: dateRange[1],
             resources: resources,
             allDay: allDay,
-            firstDayOfWeek: this.option('firstDayOfWeek'),
+            firstDayOfWeek: this.getFirstDayOfWeek(),
             recurrenceException: this._getRecurrenceException.bind(this),
         }, this._subscribes["convertDateByTimezone"].bind(this));
     },
@@ -749,15 +757,15 @@ const subscribes = {
         return SchedulerTimezones.getTimezonesIdsByDisplayName(displayName);
     },
 
-    getTargetedAppointmentData: function(appointmentData, appointmentElement) {
-        let $appointmentElement = $(appointmentElement),
-            appointmentIndex = $appointmentElement.data(this._appointments._itemIndexKey()),
-            recurringData = this._getSingleAppointmentData(appointmentData, {
-                skipDateCalculation: true,
-                $appointment: $appointmentElement,
-                skipHoursProcessing: true
-            }),
-            result = {};
+    getTargetedAppointmentData: function(appointmentData, appointmentElement, skipCheckUpdate) {
+        const $appointmentElement = $(appointmentElement);
+        const appointmentIndex = $appointmentElement.data(this._appointments._itemIndexKey());
+        const recurringData = this._getSingleAppointmentData(appointmentData, {
+            skipDateCalculation: true,
+            $appointment: $appointmentElement,
+            skipHoursProcessing: true
+        }, skipCheckUpdate);
+        let result = {};
 
         extend(true, result, appointmentData, recurringData);
 
@@ -811,7 +819,7 @@ const subscribes = {
                 tailDuration = visibleDayDuration;
             }
 
-            result = floorQuantityOfDays * visibleDayDuration + tailDuration;
+            result = (floorQuantityOfDays * visibleDayDuration + tailDuration) || toMs("minute");
         }
         options.callback(result);
     },
@@ -830,6 +838,12 @@ const subscribes = {
 
     isAdaptive: function() {
         return this.option("adaptivityEnabled");
+    },
+
+    moveBack: function() {
+        const dragBehavior = this.getWorkSpace().dragBehavior;
+
+        dragBehavior && dragBehavior.moveBack();
     }
 };
 module.exports = subscribes;

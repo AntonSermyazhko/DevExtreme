@@ -46,12 +46,7 @@
 * @name 40. Border color
 * @type color
 */
-@base-border-color: fade(#ffffff, 11%);
-@base-border-color-without-alpha: rgb(
-    red(@base-border-color) * alpha(@base-border-color) + (1 - alpha(@base-border-color)) * red(@base-bg),
-    green(@base-border-color) * alpha(@base-border-color) + (1 - alpha(@base-border-color)) * green(@base-bg),
-    blue(@base-border-color) * alpha(@base-border-color) + (1 - alpha(@base-border-color)) * blue(@base-bg)
-);
+@base-border-color: #596980;
 
 /**
 * @name 120. Border radius
@@ -337,9 +332,9 @@
 */
 @button-default-border-color: darken(@base-accent, 5%);
 
-@button-default-contained-bg-hover: lighten(@button-default-bg, 20%);
-@button-default-contained-bg-focused: lighten(@button-default-bg, 25%);
-@button-default-contained-bg-active: lighten(@button-default-bg, 50%);
+@button-default-contained-bg-hover: lighten(@button-default-bg, 9%);
+@button-default-contained-bg-focused: lighten(@button-default-bg, 12%);
+@button-default-contained-bg-active: lighten(@button-default-bg, 23%);
 
 @button-default-outlined-bg-hover: fade(@button-default-border-color, 10%);
 @button-default-outlined-bg-focused: fade(@button-default-border-color, 10%);
@@ -370,9 +365,9 @@
 */
 @button-danger-border-color: darken(@base-danger, 5%);
 
-@button-danger-contained-bg-hover: lighten(@button-danger-bg, 20%);
-@button-danger-contained-bg-focused: lighten(@button-danger-bg, 25%);
-@button-danger-contained-bg-active: lighten(@button-danger-bg, 50%);
+@button-danger-contained-bg-hover: lighten(@button-danger-bg, 9%);
+@button-danger-contained-bg-focused: lighten(@button-danger-bg, 12%);
+@button-danger-contained-bg-active: lighten(@button-danger-bg, 23%);
 
 @button-danger-outlined-bg-hover: fade(@button-danger-border-color, 10%);
 @button-danger-outlined-bg-focused: fade(@button-danger-border-color, 10%);
@@ -403,9 +398,9 @@
 */
 @button-success-border-color: darken(@base-success, 5%);
 
-@button-success-contained-bg-hover: lighten(@button-success-bg, 20%);
-@button-success-contained-bg-focused: lighten(@button-success-bg, 25%);
-@button-success-contained-bg-active: lighten(@button-success-bg, 50%);
+@button-success-contained-bg-hover: lighten(@button-success-bg, 9%);
+@button-success-contained-bg-focused: lighten(@button-success-bg, 12%);
+@button-success-contained-bg-active: lighten(@button-success-bg, 23%);
 
 @button-success-outlined-bg-hover: fade(@button-success-border-color, 10%);
 @button-success-outlined-bg-focused: fade(@button-success-border-color, 10%);
@@ -957,6 +952,7 @@
 @slider-handle-active-bg: lighten(@slider-handle-bg, 17%);
 @slider-handle-hover-bg: lighten(@slider-handle-bg, 10%);
 @slider-handle-focused-bg: @slider-handle-hover-bg;
+@slider-invalid-handle-accent-bg: lighten(@base-danger, 10%);
 
 @slider-handle-border-radius: @base-border-radius - 1px;
 
@@ -1039,7 +1035,7 @@
 // DataGrid
 @datagrid-base-color: @base-text-color;
 @datagrid-base-background-color: @base-bg;
-@datagrid-border-color: @base-border-color-without-alpha;
+@datagrid-border-color: @base-border-color;
 @datagrid-border: 1px solid @datagrid-border-color;
 
 /**
@@ -1209,7 +1205,7 @@
 
 @treelist-base-color: @base-text-color;
 @treelist-base-background-color: @base-bg;
-@treelist-border-color: @base-border-color-without-alpha;
+@treelist-border-color: @base-border-color;
 @treelist-border: 1px solid @treelist-border-color;
 @treelist-columnchooser-item-color: @datagrid-columnchooser-item-color;
 @treelist-columnchooser-font-weight: @datagrid-columnchooser-font-weight;
@@ -1268,7 +1264,7 @@
 
 // dxPivotGrid
 @PIVOTGRID_AREA_BACKGROUND: @base-bg;
-@PIVOTGRID_BORDER_COLOR: @base-border-color-without-alpha;
+@PIVOTGRID_BORDER_COLOR: @base-border-color;
 
 /**
 * @name 20. Header text color
@@ -1325,7 +1321,7 @@
 * @name 10. Border color
 * @type color
 */
-@SCHEDULER_BASE_BORDER_COLOR: fade(@base-border-color-without-alpha, 60%);
+@SCHEDULER_BASE_BORDER_COLOR: fade(@base-border-color, 60%);
 @scheduler-cell-active-bg: fade(darken(@base-bg, 13.3%), 70%);
 @scheduler-cell-hover-bg: lighten(@base-bg, 4%);
 @scheduler-group-separator-border-color: lighten(@base-border-color, 20%);
@@ -1334,7 +1330,7 @@
 * @name 20. Hour separator color
 * @type color
 */
-@SCHEDULER_ACCENT_BORDER_COLOR: lighten(@base-border-color-without-alpha, 9.8%);
+@SCHEDULER_ACCENT_BORDER_COLOR: lighten(@base-border-color, 9.8%);
 
 /**
 * @name 30. Appointment text color

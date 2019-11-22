@@ -4,29 +4,28 @@ import Widget from "../widget/ui.widget";
 import registerComponent from "../../core/component_registrator";
 import dataCoreUtils from '../../core/utils/data';
 import { GanttView } from "./ui.gantt.view";
+import GanttContextMenuBar from "./ui.gantt.contextmenu";
 import dxTreeList from "../tree_list";
 import { extend } from "../../core/utils/extend";
 import { hasWindow } from "../../core/utils/window";
 import DataOption from "./ui.gantt.data.option";
 import SplitterControl from "../splitter";
 import { GanttDialog } from "./ui.gantt.dialogs";
+import LoadPanel from "../load_panel";
 
 const GANTT_CLASS = "dx-gantt";
 const GANTT_VIEW_CLASS = "dx-gantt-view";
 const GANTT_COLLAPSABLE_ROW = "dx-gantt-collapsable-row";
 const GANTT_TREE_LIST_WRAPPER = "dx-gantt-treelist-wrapper";
 
+const GANTT_TASKS = "tasks";
+const GANTT_DEPENDENCIES = "dependencies";
+const GANTT_RESOURCES = "resources";
+const GANTT_RESOURCE_ASSIGNMENTS = "resourceAssignments";
+
 const GANTT_DEFAULT_ROW_HEIGHT = 34;
 
 class Gantt extends Widget {
-    _init() {
-        super._init();
-        this._refreshDataSource("tasks");
-        this._refreshDataSource("dependencies");
-        this._refreshDataSource("resources");
-        this._refreshDataSource("resourceAssignments");
-    }
-
     _initMarkup() {
         super._initMarkup();
         this.$element().addClass(GANTT_CLASS);
@@ -43,15 +42,28 @@ class Gantt extends Widget {
             .appendTo(this.$element());
         this._$dialog = $("<div>")
             .appendTo(this.$element());
+        this._$loadPanel = $("<div>")
+            .appendTo(this.$element());
+        this._$contextMenu = $("<div>")
+            .appendTo(this.$element());
+
+        this._refreshDataSource(GANTT_TASKS);
+        this._refreshDataSource(GANTT_DEPENDENCIES);
+        this._refreshDataSource(GANTT_RESOURCES);
+        this._refreshDataSource(GANTT_RESOURCE_ASSIGNMENTS);
     }
 
-    _render() {
+    _renderContent() {
         this._renderTreeList();
         this._renderSplitter();
+        this._renderBars();
     }
     _renderTreeList() {
+        const { keyExpr, parentIdExpr } = this.option(GANTT_TASKS);
         this._treeList = this._createComponent(this._$treeList, dxTreeList, {
-            dataSource: this._tasks,
+            dataSource: this._tasksRaw,
+            keyExpr: keyExpr,
+            parentIdExpr: parentIdExpr,
             columns: this.option("columns"),
             columnResizingMode: "nextColumn",
             height: "100%",
@@ -67,7 +79,9 @@ class Gantt extends Widget {
             onSelectionChanged: (e) => { this._onTreeListSelectionChanged(e); },
             onRowCollapsed: (e) => this._ganttView.changeTaskExpanded(e.key, false),
             onRowExpanded: (e) => this._ganttView.changeTaskExpanded(e.key, true),
-            onRowPrepared: (e) => { this._onTreeListRowPrepared(e); }
+            onRowPrepared: (e) => { this._onTreeListRowPrepared(e); },
+            onContextMenuPreparing: (e) => { this._onTreeListContextMenuPreparing(e); },
+            onRowDblClick: () => { this._onTreeListRowDblClick(); }
         });
     }
     _renderSplitter() {
@@ -79,6 +93,10 @@ class Gantt extends Widget {
         });
         this._setInnerElementsWidth();
         this._splitter.option("initialLeftPanelWidth", this.option("taskListWidth"));
+    }
+    _renderBars() {
+        this._contextMenuBar = new GanttContextMenuBar(this._$contextMenu, this);
+        this._bars = [this._contextMenuBar];
     }
 
     _initGanttView() {
@@ -100,10 +118,14 @@ class Gantt extends Widget {
             showRowLines: this.option("showRowLines"),
             scaleType: this.option("scaleType"),
             editing: this.option("editing"),
+            bars: this._bars,
             onSelectionChanged: this._onGanttViewSelectionChanged.bind(this),
             onScroll: this._onGanttViewScroll.bind(this),
-            onDialogShowing: this._showDialog.bind(this)
+            onDialogShowing: this._showDialog.bind(this),
+            onPopupMenuShowing: this._showPopupMenu.bind(this),
+            modelChangesListener: this._createModelChangesListener()
         });
+        this._fireContentReadyAction();
     }
 
     _onApplyPanelSize(e) {
@@ -120,6 +142,16 @@ class Gantt extends Widget {
         if(e.rowType === "data" && e.node.children.length > 0) {
             $(e.rowElement).addClass(GANTT_COLLAPSABLE_ROW);
         }
+    }
+    _onTreeListContextMenuPreparing(e) {
+        if(e.row.rowType === "data") {
+            this._setTreeListOption("selectedRowKeys", [e.row.data.id]);
+            e.items = [];
+            this._showPopupMenu({ position: { x: e.event.clientX, y: e.event.clientY } });
+        }
+    }
+    _onTreeListRowDblClick() {
+        this._ganttView._ganttViewCore.commandManager.showTaskEditDialog.execute();
     }
     _onTreeListSelectionChanged(e) {
         const selectedRowKey = e.currentSelectedRowKeys[0];
@@ -155,7 +187,7 @@ class Gantt extends Widget {
     }
     _getTreeListRowHeight() {
         const $row = this._treeList._$element.find(".dx-data-row");
-        return $row.length ? $row.last().outerHeight() : GANTT_DEFAULT_ROW_HEIGHT;
+        return $row.length ? $row.last().get(0).getBoundingClientRect().height : GANTT_DEFAULT_ROW_HEIGHT;
     }
 
 
@@ -203,11 +235,26 @@ class Gantt extends Widget {
             delete this[`_${name}`];
         }
         if(this.option(`${name}.dataSource`)) {
-            dataOption = new DataOption(name, (name, data) => { this._dataSourceChanged(name, data); });
-            dataOption.option("dataSource", this.option(`${name}.dataSource`));
+            dataOption = new DataOption(name, this._getLoadPanel(), (name, data) => {
+                this._dataSourceChanged(name, data);
+            });
+            dataOption.option("dataSource", this._getSpecificDataSourceOption(name));
             dataOption._refreshDataSource();
             this[`_${name}Option`] = dataOption;
         }
+    }
+    _getSpecificDataSourceOption(name) {
+        var dataSource = this.option(`${name}.dataSource`);
+        if(Array.isArray(dataSource)) {
+            return {
+                store: {
+                    type: "array",
+                    data: dataSource,
+                    key: this.option(`${name}.keyExpr`)
+                }
+            };
+        }
+        return dataSource;
     }
     _compileGettersByOption(optionName) {
         const getters = {};
@@ -219,6 +266,27 @@ class Gantt extends Widget {
             }
         }
         return getters;
+    }
+    _compileSettersByOption(optionName) {
+        const setters = {};
+        const optionValue = this.option(optionName);
+        for(let field in optionValue) {
+            const exprMatches = field.match(/(\w*)Expr/);
+            if(exprMatches) {
+                setters[exprMatches[1]] = dataCoreUtils.compileSetter(optionValue[exprMatches[0]]);
+            }
+        }
+        return setters;
+    }
+    _getStoreObject(optionName, modelObject) {
+        const setters = this._compileSettersByOption(optionName);
+        return Object.keys(setters)
+            .reduce((previous, key) => {
+                if(key !== "key") {
+                    setters[key](previous, modelObject[key]);
+                }
+                return previous;
+            }, {});
     }
     _prepareMapHandler(getters) {
         return (data) => {
@@ -236,9 +304,89 @@ class Gantt extends Widget {
 
         this[`_${dataSourceName}`] = mappedData;
         this._setGanttViewOption(dataSourceName, mappedData);
-        if(dataSourceName === "tasks") {
-            this._setTreeListOption("dataSource", mappedData);
+        if(dataSourceName === GANTT_TASKS) {
+            this._tasksRaw = data;
+            this._setTreeListOption("dataSource", data);
         }
+    }
+
+    _createModelChangesListener() {
+        return { // IModelChangesListener
+            NotifyTaskCreated: (task, callback) => { this._onRecordInserted(GANTT_TASKS, task, callback); },
+            NotifyTaskRemoved: (taskId) => { this._onRecordRemoved(GANTT_TASKS, taskId); },
+            NotifyTaskTitleChanged: (taskId, newValue) => { this._onRecordUpdated(GANTT_TASKS, taskId, "title", newValue); },
+            NotifyTaskDescriptionChanged: (taskId, newValue) => { this._onRecordUpdated(GANTT_TASKS, taskId, "description", newValue); },
+            NotifyTaskStartChanged: (taskId, newValue) => { this._onRecordUpdated(GANTT_TASKS, taskId, "start", newValue); },
+            NotifyTaskEndChanged: (taskId, newValue) => { this._onRecordUpdated(GANTT_TASKS, taskId, "end", newValue); },
+            NotifyTaskProgressChanged: (taskId, newValue) => { this._onRecordUpdated(GANTT_TASKS, taskId, "progress", newValue); },
+
+            NotifyDependencyInserted: (dependency, callback) => { this._onRecordInserted(GANTT_DEPENDENCIES, dependency, callback); },
+            NotifyDependencyRemoved: (dependencyId) => { this._onRecordRemoved(GANTT_DEPENDENCIES, dependencyId); },
+
+            NotifyResourceCreated: (resource, callback) => { this._onRecordInserted(GANTT_RESOURCES, resource, callback); },
+            NotifyResourceRemoved: (resource) => { this._onRecordRemoved(GANTT_RESOURCES, resource); },
+
+            NotifyResourceAssigned: (assignment, callback) => { this._onRecordInserted(GANTT_RESOURCE_ASSIGNMENTS, assignment, callback); },
+            NotifyResourceUnassigned: (assignmentId) => { this._onRecordRemoved(GANTT_RESOURCE_ASSIGNMENTS, assignmentId); }
+        };
+    }
+    _onRecordInserted(optionName, record, callback) {
+        const dataOption = this[`_${optionName}Option`];
+        if(dataOption) {
+            const data = this._getStoreObject(optionName, record);
+            dataOption.insert(data, (response) => {
+                const keyGetter = dataCoreUtils.compileGetter(this.option(`${optionName}.keyExpr`));
+                const insertedId = keyGetter(response);
+                callback(insertedId);
+                if(optionName === GANTT_TASKS) {
+                    this._updateTreeListDataSource();
+                    const parentId = record.parentId;
+                    if(parentId !== undefined) {
+                        const expandedRowKeys = this._treeList.option("expandedRowKeys");
+                        expandedRowKeys.push(parentId);
+                        this._treeList.option("expandedRowKeys", expandedRowKeys);
+                    }
+                }
+            });
+        }
+    }
+    _onRecordRemoved(optionName, key) {
+        const dataOption = this[`_${optionName}Option`];
+        if(dataOption) {
+            dataOption.remove(key, () => {
+                if(optionName === GANTT_TASKS) {
+                    this._updateTreeListDataSource();
+                }
+            });
+        }
+    }
+    _onRecordUpdated(optionName, key, fieldName, value) {
+        const dataOption = this[`_${optionName}Option`];
+        if(dataOption) {
+            const setter = dataCoreUtils.compileSetter(this.option(`${optionName}.${fieldName}Expr`));
+            const data = {};
+            setter(data, value);
+            dataOption.update(key, data, () => {
+                if(optionName === GANTT_TASKS) {
+                    this._updateTreeListDataSource();
+                }
+            });
+        }
+    }
+    _updateTreeListDataSource() {
+        const storeArray = this._tasksOption._getStore()._array;
+        this._setTreeListOption("dataSource", storeArray ? storeArray : this.option("tasks.dataSource"));
+    }
+
+    _getLoadPanel() {
+        if(!this._loadPanel) {
+            this._loadPanel = this._createComponent(this._$loadPanel, LoadPanel, {
+                position: {
+                    of: this.$element()
+                }
+            });
+        }
+        return this._loadPanel;
     }
 
     _createSelectionChangedAction() {
@@ -261,7 +409,14 @@ class Gantt extends Widget {
         if(!this._dialogInstance) {
             this._dialogInstance = new GanttDialog(this, this._$dialog);
         }
-        this._dialogInstance.show(e.name, e.parameters, e.callback);
+        this._dialogInstance.show(e.name, e.parameters, e.callback, this.option("editing"));
+    }
+    _showPopupMenu(e) {
+        this._ganttView.getBarManager().updateContextMenu();
+        this._contextMenuBar.show(e.position);
+    }
+    _executeCoreCommand(id) {
+        this._ganttView.executeCoreCommand(id);
     }
 
     _clean() {
@@ -543,16 +698,16 @@ class Gantt extends Widget {
     _optionChanged(args) {
         switch(args.name) {
             case "tasks":
-                this._refreshDataSource("tasks");
+                this._refreshDataSource(GANTT_TASKS);
                 break;
             case "dependencies":
-                this._refreshDataSource("dependencies");
+                this._refreshDataSource(GANTT_DEPENDENCIES);
                 break;
             case "resources":
-                this._refreshDataSource("resources");
+                this._refreshDataSource(GANTT_RESOURCES);
                 break;
             case "resourceAssignments":
-                this._refreshDataSource("resourceAssignments");
+                this._refreshDataSource(GANTT_RESOURCE_ASSIGNMENTS);
                 break;
             case "columns":
                 this._setTreeListOption("columns", this.option(args.name));

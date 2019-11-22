@@ -1,16 +1,28 @@
-import { equalByValue, getKeyHash } from "../../core/utils/common";
+import { getKeyHash, equalByValue } from "../../core/utils/common";
 import { isDefined } from "../../core/utils/type";
 import { extend } from "../../core/utils/extend";
 import stateStoringCore from "./ui.grid_core.state_storing_core";
 import { Deferred } from "../../core/utils/deferred";
 
+const getDataState = that => {
+    let pagerView = that.getView("pagerView"),
+        dataController = that.getController("data"),
+        state = {
+            allowedPageSizes: pagerView ? pagerView.getPageSizes() : undefined,
+            filterPanel: { filterEnabled: that.option("filterPanel.filterEnabled") },
+            filterValue: that.option("filterValue"),
+            focusedRowKey: that.option("focusedRowEnabled") ? that.option("focusedRowKey") : undefined
+        };
+
+    return extend(state, dataController.getUserState());
+};
+
 // TODO move processLoadState to target modules (data, columns, pagerView)
-var processLoadState = function(that) {
-    var columnsController = that.getController("columns"),
+const processLoadState = that => {
+    let columnsController = that.getController("columns"),
         selectionController = that.getController("selection"),
         exportController = that.getController("export"),
-        dataController = that.getController("data"),
-        pagerView = that.getView("pagerView");
+        dataController = that.getController("data");
 
     if(columnsController) {
         columnsController.columnsChanged.add(function() {
@@ -31,13 +43,10 @@ var processLoadState = function(that) {
 
     if(dataController) {
         that._initialPageSize = that.option("paging.pageSize");
+        that._initialFilterValue = that.option("filterValue");
+
         dataController.changed.add(function() {
-            var state = extend({
-                allowedPageSizes: pagerView ? pagerView.getPageSizes() : undefined,
-                filterPanel: { filterEnabled: that.option("filterPanel.filterEnabled") },
-                filterValue: that.option("filterValue"),
-                focusedRowKey: that.option("focusedRowEnabled") ? that.option("focusedRowKey") : undefined
-            }, dataController.getUserState());
+            var state = getDataState(that);
 
             that.updateState(state);
         });
@@ -50,6 +59,24 @@ var processLoadState = function(that) {
             });
         });
     }
+};
+
+const DEFAULT_FILTER_VALUE = null;
+
+const getFilterValue = (that, state) => {
+    let filterSyncController = that.getController("filterSync"),
+        columnsController = that.getController("columns"),
+        hasFilterState = state.columns || state.filterValue !== undefined;
+
+    if(filterSyncController) {
+        if(hasFilterState) {
+            return state.filterValue || filterSyncController.getFilterValueFromColumns(state.columns);
+        } else {
+            return that._initialFilterValue || filterSyncController.getFilterValueFromColumns(columnsController.getColumns());
+        }
+    }
+
+    return DEFAULT_FILTER_VALUE;
 };
 
 module.exports = {
@@ -147,9 +174,11 @@ module.exports = {
                 },
                 state: function(state) {
                     var result = this.callBase.apply(this, arguments);
+
                     if(state !== undefined) {
                         this.applyState(extend({}, state));
                     }
+
                     return result;
                 },
                 updateState: function(state) {
@@ -176,7 +205,6 @@ module.exports = {
                         exportController = that.getController("export"),
                         columnsController = that.getController("columns"),
                         dataController = that.getController("data"),
-                        filterSyncController = that.getController("filterSync"),
                         scrollingMode = that.option("scrolling.mode"),
                         isVirtualScrollingMode = scrollingMode === "virtual" || scrollingMode === "infinite",
                         showPageSizeSelector = that.option("pager.visible") === true && that.option("pager.showPageSizeSelector");
@@ -209,7 +237,7 @@ module.exports = {
 
                     that.option("searchPanel.text", searchText || "");
 
-                    that.option("filterValue", state.filterValue || (filterSyncController ? filterSyncController.getFilterValueFromColumns(state.columns) : null));
+                    that.option("filterValue", getFilterValue(that, state));
 
                     that.option("filterPanel.filterEnabled", state.filterPanel ? state.filterPanel.filterEnabled : true);
 

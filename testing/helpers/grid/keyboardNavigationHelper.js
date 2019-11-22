@@ -7,8 +7,11 @@ import {
     MockColumnsController,
     MockSelectionController } from "../dataGridMocks.js";
 import pointerEvents from "events/pointer";
+import DataGridWrapper from "../wrappers/dataGridWrappers.js";
 
-export function setupModules(that, modulesOptions) {
+export const dataGridWrapper = new DataGridWrapper("#container");
+
+export function setupModules(that, modulesOptions, gridModules) {
     var defaultSetCellValue = function(data, value) {
         if(this.serializeValue) {
             value = this.serializeValue(value);
@@ -63,7 +66,14 @@ export function setupModules(that, modulesOptions) {
         ]
     };
 
-    setupDataGridModules(that, ['data', 'columns', "editorFactory", 'gridView', 'columnHeaders', 'rows', "grouping", "headerPanel", "search", "editing", "keyboardNavigation", "summary", "masterDetail", "virtualScrolling"], modulesOptions || {
+    gridModules = (gridModules || []).concat([
+        'data', 'columns', "editorFactory",
+        'gridView', 'columnHeaders', 'rows', "grouping",
+        "headerPanel", "search", "editing", "keyboardNavigation",
+        "summary", "masterDetail", "virtualScrolling"
+    ]);
+
+    setupDataGridModules(that, gridModules, modulesOptions || {
         initViews: true,
         controllers: {
             selection: new MockSelectionController(that.selectionOptions),

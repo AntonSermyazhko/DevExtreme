@@ -10,7 +10,8 @@
                 require("./ui/validation_engine"),
                 require("./core/utils/iterator"),
                 require("./core/utils/dom").extractTemplateMarkup,
-                require("./core/utils/string").encodeHtml
+                require("./core/utils/string").encodeHtml,
+                require("./core/utils/ajax")
             );
         });
     } else {
@@ -22,18 +23,23 @@
             DevExpress.validationEngine,
             DevExpress.utils.iterator,
             DevExpress.utils.dom.extractTemplateMarkup,
-            DevExpress.utils.string.encodeHtml
+            DevExpress.utils.string.encodeHtml,
+            DevExpress.utils.ajax
         );
     }
-})(function($, setTemplateEngine, templateRendered, Guid, validationEngine, iteratorUtils, extractTemplateMarkup, encodeHtml) {
+})(function($, setTemplateEngine, templateRendered, Guid, validationEngine, iteratorUtils, extractTemplateMarkup, encodeHtml, ajax) {
     var templateCompiler = createTemplateCompiler();
     var pendingCreateComponentRoutines = [ ];
+    var enableAlternateTemplateTags = true;
 
     function createTemplateCompiler() {
         var OPEN_TAG = "<%",
             CLOSE_TAG = "%>",
             ENCODE_QUALIFIER = "-",
             INTERPOLATE_QUALIFIER = "=";
+
+        var EXTENDED_OPEN_TAG = /[<[]%/g,
+            EXTENDED_CLOSE_TAG = /%[>\]]/g;
 
         function acceptText(bag, text) {
             if(text) {
@@ -57,12 +63,12 @@
 
         return function(text) {
             var bag = ["var _ = [];", "with(obj||{}) {"],
-                chunks = text.split(OPEN_TAG);
+                chunks = text.split(enableAlternateTemplateTags ? EXTENDED_OPEN_TAG : OPEN_TAG);
 
             acceptText(bag, chunks.shift());
 
             for(var i = 0; i < chunks.length; i++) {
-                var tmp = chunks[i].split(CLOSE_TAG);
+                var tmp = chunks[i].split(enableAlternateTemplateTags ? EXTENDED_CLOSE_TAG : CLOSE_TAG);
                 if(tmp.length !== 2) {
                     throw "Template syntax error";
                 }
@@ -166,6 +172,10 @@
             }
         },
 
+        enableAlternateTemplateTags: function(value) {
+            enableAlternateTemplateTags = value;
+        },
+
         createValidationSummaryItems: function(validationGroup, editorNames) {
             var summary = getValidationSummary(validationGroup),
                 groupConfig,
@@ -178,6 +188,35 @@
                     items.length && summary.option("items", items);
                 }
             }
+        },
+
+        sendValidationRequest: function(propertyName, propertyValue, url, method) {
+            var d = $.Deferred();
+            var data = { };
+            data[propertyName] = propertyValue;
+
+            ajax.sendRequest({
+                url: url,
+                dataType: "json",
+                method: method || "GET",
+                data: data
+            }).then(function(response) {
+                if(typeof response === "string") {
+                    d.resolve({
+                        isValid: false,
+                        message: response
+                    });
+                } else {
+                    d.resolve(response);
+                }
+            }, function(xhr) {
+                d.reject({
+                    isValid: false,
+                    message: xhr.responseText
+                });
+            });
+
+            return d.promise();
         }
     };
 });

@@ -98,10 +98,10 @@ registerEvent(DROP_EVENT, dropTargetRegistration);
 
 var getItemDelegatedTargets = function($element) {
     var dropTargetIndex = inArray($element.get(0), knownDropTargets),
-        dropTargetSelectors = knownDropTargetSelectors[dropTargetIndex];
+        dropTargetSelectors = knownDropTargetSelectors[dropTargetIndex].filter((selector) => selector);
 
     var $delegatedTargets = $element.find(dropTargetSelectors.join(", "));
-    if(inArray(undefined, dropTargetSelectors) !== -1) {
+    if(inArray(undefined, knownDropTargetSelectors[dropTargetIndex]) !== -1) {
         $delegatedTargets = $delegatedTargets.add($element);
     }
     return $delegatedTargets;
@@ -265,7 +265,7 @@ var DragEmitter = GestureEmitter.inherit({
     },
 
     _checkDropTarget: function(config, $target, e) {
-        var isDraggingElement = $target.get(0) === this._$element.get(0);
+        var isDraggingElement = $target.get(0) === $(e.target).get(0);
         if(isDraggingElement) {
             return false;
         }

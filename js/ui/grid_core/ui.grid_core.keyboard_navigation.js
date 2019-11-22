@@ -11,6 +11,9 @@ import eventUtils from "../../events/utils";
 import pointerEvents from "../../events/pointer";
 import { noop } from "../../core/utils/common";
 import { selectView } from "../shared/accessibility";
+import { isElementInCurrentGrid } from "./ui.grid_core.utils";
+import browser from "../../core/utils/browser";
+
 
 var ROWS_VIEW_CLASS = "rowsview",
     EDIT_FORM_CLASS = "edit-form",
@@ -131,16 +134,15 @@ var KeyboardNavigationController = core.ViewController.inherit({
                 needUpdateFocus = false,
                 isAppend = e && (e.changeType === "append" || e.changeType === "prepend"),
                 clickSelector = `.${ROW_CLASS} > td, .${ROW_CLASS}`,
-                $focusedElement;
+                $focusedElement = $(":focus"),
+                isFocusedElementCorrect = !$focusedElement.length || $focusedElement.closest($element).length || (browser.msie && $focusedElement.is("body"));
 
             eventsEngine.off($element, eventUtils.addNamespace(pointerEvents.up, "dxDataGridKeyboardNavigation"), clickAction);
             eventsEngine.on($element, eventUtils.addNamespace(pointerEvents.up, "dxDataGridKeyboardNavigation"), clickSelector, clickAction);
 
             that._initKeyDownProcessor(that, $element, that._keyDownHandler);
 
-            $focusedElement = $(":focus");
-
-            if(isFocusedViewCorrect && (!$focusedElement.length || $focusedElement.closest($element).length)) {
+            if(isFocusedViewCorrect && isFocusedElementCorrect) {
                 needUpdateFocus = that._isNeedFocus ? !isAppend : that._isHiddenFocus && isFullUpdate;
                 needUpdateFocus && that._updateFocus(true);
             }
@@ -205,12 +207,9 @@ var KeyboardNavigationController = core.ViewController.inherit({
         var isEditing = this._editingController.isEditing(),
             needStopPropagation = true,
             originalEvent = e.originalEvent,
-            args = {
-                handled: false,
-                event: originalEvent
-            };
+            isHandled;
 
-        this.executeAction("onKeyDown", args);
+        isHandled = this._processOnKeyDown(e);
 
         if(originalEvent.isDefaultPrevented()) {
             return;
@@ -219,9 +218,9 @@ var KeyboardNavigationController = core.ViewController.inherit({
         this._isNeedFocus = true;
         this._isNeedScroll = true;
 
-        this._updateFocusedCellPosition(this._getCellElementFromTarget(args.event.target));
+        this._updateFocusedCellPosition(this._getCellElementFromTarget(originalEvent.target));
 
-        if(!args.handled) {
+        if(!isHandled) {
             switch(e.keyName) {
                 case "leftArrow":
                 case "rightArrow":
@@ -281,12 +280,12 @@ var KeyboardNavigationController = core.ViewController.inherit({
                 case "del":
                 case "backspace":
                     if(this._isFastEditingAllowed() && !this._isFastEditingStarted()) {
-                        this._beginFastEditing(e.originalEvent, true);
+                        this._beginFastEditing(originalEvent, true);
                     }
                     break;
 
                 default:
-                    if(!this._beginFastEditing(e.originalEvent)) {
+                    if(!this._beginFastEditing(originalEvent)) {
                         this._isNeedFocus = false;
                         this._isNeedScroll = false;
                         needStopPropagation = false;
@@ -298,6 +297,21 @@ var KeyboardNavigationController = core.ViewController.inherit({
                 originalEvent.stopPropagation();
             }
         }
+    },
+    _processOnKeyDown: function(eventArgs) {
+        const originalEvent = eventArgs.originalEvent;
+        const args = {
+            handled: false,
+            event: originalEvent
+        };
+
+        this.executeAction("onKeyDown", args);
+
+        eventArgs.ctrl = originalEvent.ctrlKey;
+        eventArgs.alt = originalEvent.altKey;
+        eventArgs.shift = originalEvent.shiftKey;
+
+        return !!args.handled;
     },
 
     _leftRightKeysHandler: function(eventArgs, isEditing) {
@@ -725,8 +739,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
         }
     },
     _isEventInCurrentGrid: function(event) {
-        var $grid = $(event.target).closest("." + this.getWidgetContainerClass()).parent();
-        return $grid.is(this.component.$element());
+        return isElementInCurrentGrid(this, $(event.target));
     },
 
     _clickTargetCellHandler: function(event, $cell) {
@@ -844,7 +857,7 @@ var KeyboardNavigationController = core.ViewController.inherit({
     _getFocusedViewByElement: function($element) {
         var view = this.getFocusedView(),
             $view = view && $(view.element());
-        return $element.closest($view).length !== 0;
+        return $element && $element.closest($view).length !== 0;
     },
 
     _focusView: function() {
