@@ -39,7 +39,7 @@ function run_test {
     local url="http://localhost:$port/run?notimers=true"
     local runner_pid
     local runner_result=0
-    local ios9_UA=`"Mozilla/5.0 (iPad; CPU OS 9_1 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13B143 Safari/601.1"`
+    local ios9_UA="Mozilla/5.0 (iPad; CPU OS 9_1 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13B143 Safari/601.1"
 
     [ -n "$CONSTEL" ] && url="$url&constellation=$CONSTEL"
     [ -z "$JQUERY"  ] && url="$url&nojquery=true"
@@ -73,24 +73,27 @@ function run_test {
         *)
             google-chrome-stable --version
 
-            local user_agent=""
-            [ "$MOBILE_UA" == "ios9" ] && user_agent="--user-agent=$ios9_UA"
+            local chromeArgs="--user-agent="\""$ios9_UA"\"" \
+                --no-sandbox \
+                --disable-dev-shm-usage \
+                --disable-gpu \
+                --user-data-dir=/tmp/chrome \
+                --no-first-run \
+                --headless=true \
+                --no-default-browser-check \
+                --disable-translate"
 
-            if [ "$HEADLESS" == "true" ]; then
-                google-chrome-stable \
-                    $user_agent \
-                    --no-sandbox \
-                    --disable-dev-shm-usage \
-                    --disable-gpu \
-                    --user-data-dir=/tmp/chrome \
-                    --headless \
-                    --remote-debugging-address=0.0.0.0 \
-                    --remote-debugging-port=9222 \
-                    --user-agent=$userAgent \
-                    $url &>headless-chrome.log &
+            echo $chromeArgs
+
+            if [ "$UA" == "ios9" ]; then
+                dbus-launch \
+                    --exit-with-session google-chrome-stable \
+                    $chromeArgs \
+                    $url &
+            elif [ "$HEADLESS" == "true" ]; then
+                google-chrome-stable $chromeArgs $url &>headless-chrome.log &
             else
                 dbus-launch \
-                    $user_agent \
                     --exit-with-session google-chrome-stable \
                     --no-sandbox \
                     --disable-dev-shm-usage \
