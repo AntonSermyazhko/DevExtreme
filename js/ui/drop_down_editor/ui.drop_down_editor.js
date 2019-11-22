@@ -71,6 +71,8 @@ var DropDownEditor = TextBox.inherit({
                     e.preventDefault();
                 }
                 this.close();
+
+                return true;
             },
             upArrow: function(e) {
                 e.preventDefault();
@@ -249,7 +251,7 @@ var DropDownEditor = TextBox.inherit({
     },
 
     _getDefaultPopupPosition: function() {
-        var position = getDefaultAlignment(this.option("rtlEnabled"));
+        var position = getDefaultAlignment();
 
         return {
             offset: { h: 0, v: -1 },
@@ -860,11 +862,6 @@ var DropDownEditor = TextBox.inherit({
     close: function() {
         this.option("opened", false);
     },
-
-    /**
-    * @name dxDropDownEditorMethods.reset
-    * @publicName reset()
-    */
 
     /**
     * @name dxDropDownEditorMethods.field

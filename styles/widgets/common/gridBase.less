@@ -154,7 +154,6 @@
                 padding-right: @GRID_SORT_INDEX_OFFSET;
                 margin-left: -@GRID_SORT_INDEX_OFFSET;
                 width: @GRID_SORT_INDEX_WIDTH + @GRID_SORT_INDEX_OFFSET;
-                font-weight: 500;
             }
 
             .dx-sort,
@@ -195,9 +194,10 @@
             }
         }
 
-        .dx-command-drag {
+        .dx-@{widgetName}-rowsview .dx-row .dx-command-drag {
             cursor: move;
             vertical-align: middle;
+            padding: 0;
         }
     }
 
@@ -817,6 +817,10 @@
 
         &.dx-empty {
             height: 100px;
+
+            .dx-scrollable-content {
+                height: 100%;
+            }
         }
 
         &.dx-fixed-columns {
@@ -927,6 +931,12 @@
 
     .dx-@{widgetName}-hidden-column {
         white-space: nowrap;
+    }
+
+    // ie11
+    .dx-@{widgetName} .dx-row .dx-@{widgetName}-hidden-column {
+        border-right-width: 0;
+        border-left-width: 0;
     }
 
     .dx-@{widgetName}-hidden-column > * {
@@ -1060,6 +1070,7 @@
         }
 
         .dx-@{widgetName}-headers,
+        .dx-@{widgetName}-rowsview,
         .dx-@{widgetName}-total-footer {
             direction: ltr;
 

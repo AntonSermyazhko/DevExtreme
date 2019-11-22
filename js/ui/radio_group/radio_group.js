@@ -1,6 +1,7 @@
 import $ from "../../core/renderer";
 import { extend } from "../../core/utils/extend";
 import devices from "../../core/devices";
+import { deferRender } from "../../core/utils/common";
 import inkRipple from "../widget/utils.ink_ripple";
 import registerComponent from "../../core/component_registrator";
 import CollectionWidget from "../collection/ui.collection_widget.edit";
@@ -24,6 +25,10 @@ class RadioCollection extends CollectionWidget {
         return this.$element().parent();
     }
 
+    _nullValueSelectionSupported() {
+        return true;
+    }
+
     _getDefaultOptions() {
         const defaultOptions = super._getDefaultOptions();
 
@@ -34,7 +39,10 @@ class RadioCollection extends CollectionWidget {
 
     _initMarkup() {
         super._initMarkup();
-        this.itemElements().addClass(RADIO_BUTTON_CLASS);
+
+        deferRender(() => {
+            this.itemElements().addClass(RADIO_BUTTON_CLASS);
+        });
     }
 
     _keyboardEventBindingTarget() {

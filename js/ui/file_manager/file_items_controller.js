@@ -1,9 +1,9 @@
 import { FileProvider, FileManagerItem, FileManagerRootItem } from "./file_provider/file_provider";
 import ArrayFileProvider from "./file_provider/array";
 import AjaxFileProvider from "./file_provider/ajax";
-import WebApiFileProvider from "./file_provider/webapi";
+import RemoteFileProvider from "./file_provider/remote";
 import CustomFileProvider from "./file_provider/custom";
-import { pathCombine, getPathParts, getFileExtension } from "./ui.file_manager.utils";
+import { pathCombine, getEscapedFileName, getPathParts, getFileExtension } from "./ui.file_manager.utils";
 import whenSome, { ErrorCode } from "./ui.file_manager.common";
 
 import { Deferred, when } from "../../core/utils/deferred";
@@ -20,6 +20,8 @@ export default class FileItemsController {
         this._rootDirectoryInfo = this._createDirectoryInfo(rootDirectory, null);
 
         this._currentDirectoryInfo = this._rootDirectoryInfo;
+
+        this._defaultIconMap = this._createDefaultIconMap();
 
         this._securityController = new FileSecurityController({
             allowedFileExtensions: this._options.allowedFileExtensions,
@@ -57,8 +59,8 @@ export default class FileItemsController {
         }
 
         switch(fileProvider.type) {
-            case "webapi":
-                return new WebApiFileProvider(fileProvider);
+            case "remote":
+                return new RemoteFileProvider(fileProvider);
             case "custom":
                 return new CustomFileProvider(fileProvider);
         }
@@ -68,6 +70,11 @@ export default class FileItemsController {
 
     setCurrentPath(path) {
         const pathParts = getPathParts(path);
+        const rawPath = pathCombine(...pathParts);
+        if(this.getCurrentDirectory().fileItem.relativeName === rawPath) {
+            return;
+        }
+
         return this._getDirectoryByPathParts(this._rootDirectoryInfo, pathParts)
             .then(directoryInfo => {
                 for(let info = directoryInfo.parentDirectory; info; info = info.parentDirectory) {
@@ -81,7 +88,8 @@ export default class FileItemsController {
         let currentPath = "";
         let directory = this.getCurrentDirectory();
         while(directory && !directory.fileItem.isRoot) {
-            currentPath = pathCombine(directory.fileItem.name, currentPath);
+            const escapedName = getEscapedFileName(directory.fileItem.name);
+            currentPath = pathCombine(escapedName, currentPath);
             directory = directory.parentDirectory;
         }
         return currentPath;
@@ -245,9 +253,9 @@ export default class FileItemsController {
         this._fileProvider.downloadItems(items);
     }
 
-    getItemsContent(itemInfos) {
+    getItemContent(itemInfos) {
         const items = itemInfos.map(i => i.fileItem);
-        return when(this._fileProvider.getItemsContent(items));
+        return when(this._fileProvider.getItemContent(items));
     }
 
     _processEditAction(actionInfo, action, completeAction) {
@@ -414,34 +422,28 @@ export default class FileItemsController {
         }
 
         const extension = fileItem.getExtension();
-        switch(extension) {
-            case ".txt":
-                return "doc"; // TODO change icon
-            case ".rtf":
-            case ".doc":
-            case ".docx":
-            case ".odt":
-                return "doc";
-            case ".xls":
-            case ".xlsx":
-            case ".ods":
-                return "exportxlsx";
-            case ".ppt":
-            case ".pptx":
-            case ".odp":
-                return "doc"; // TODO change icon
-            case ".pdf":
-                return "exportpdf";
-            case ".png":
-            case ".gif":
-            case ".jpg":
-            case ".jpeg":
-            case ".ico":
-            case ".bmp":
-                return "image";
-            default:
-                return "doc"; // TODO change icon
-        }
+        const icon = this._defaultIconMap[extension];
+        return icon || "doc";
+    }
+
+    _createDefaultIconMap() {
+        const result = {
+            ".txt": "txtfile",
+            ".rtf": "rtffile",
+            ".doc": "docfile",
+            ".docx": "docxfile",
+            ".xls": "xlsfile",
+            ".xlsx": "xlsxfile",
+            ".ppt": "pptfile",
+            ".pptx": "pptxfile",
+            ".pdf": "pdffile"
+        };
+
+        [".png", ".gif", ".jpg", ".jpeg", ".ico", ".bmp"].forEach(extension => {
+            result[extension] = "image";
+        });
+
+        return result;
     }
 
     _createRootDirectory(text) {

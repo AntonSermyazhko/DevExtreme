@@ -11,6 +11,7 @@ import fx from "animation/fx";
 import { isRenderer } from "core/utils/type";
 import errors from "core/errors";
 import config from "core/config";
+import ariaAccessibilityTestHelper from '../../helpers/ariaAccessibilityTestHelper.js';
 
 import "common.css!";
 import "generic_light.css!";
@@ -564,6 +565,39 @@ QUnit.module("functionality", moduleSetup, () => {
 
         const $selectedItem = $popupContent.find(toSelector(LIST_ITEM_SELECTED_CLASS));
         assert.ok($popupContent.offset().top + $popupContent.height() > $selectedItem.offset().top, "selected item is visible after search");
+    });
+
+    QUnit.test("Widget selects current value in the dropDownList if dxSelectBox with async data is opened on initialization (T822930)", (assert) => {
+        const selectBox = $("#selectBox").dxSelectBox({
+            deferRendering: true,
+            dataSource: {
+                load: () => {
+                    const d = $.Deferred();
+
+                    setTimeout(() => {
+                        d.resolve([1, 2, 3]);
+                    }, TIME_TO_WAIT / 4);
+
+                    return d.promise();
+                },
+                byKey: () => {
+                    const d = $.Deferred();
+
+                    setTimeout(() => {
+                        d.resolve(1);
+                    }, TIME_TO_WAIT / 4);
+
+                    return d.promise();
+                }
+            },
+            value: 1
+        }).dxSelectBox("instance");
+
+        selectBox.open();
+        this.clock.tick(TIME_TO_WAIT);
+        const list = $(selectBox.content()).find(toSelector(LIST_CLASS)).dxList("instance");
+
+        assert.ok(list.option("selectedItem") === 1, "list item is selected");
     });
 
     QUnit.test("dxSelectBox scrolls to the top when paging is enabled and selectbox is editable and item is out of page", (assert) => {
@@ -3817,6 +3851,26 @@ QUnit.module("keyboard navigation", moduleSetup, () => {
         assert.strictEqual($list.find(".dx-list-item").text(), "1234", "all previous list items are loaded");
     });
 
+    QUnit.test("downArrow should not add new items", (assert) => {
+        const $element = $("#selectBox").dxSelectBox({
+            items: [1, 2, 3],
+            opened: false
+        });
+
+        const $input = $element.find(toSelector(TEXTEDITOR_INPUT_CLASS));
+        const instance = $element.dxSelectBox("instance");
+        const keyboard = keyboardMock($input);
+
+        keyboard.press("tab");
+        for(let i = 0; i < 20; ++i) {
+            keyboard.press("down");
+        }
+
+        const $list = $(instance.content()).find(toSelector(LIST_CLASS));
+
+        assert.equal($list.find(toSelector(LIST_ITEM_CLASS)).text(), "123", "downArrow works correct");
+    });
+
     [144, 145].forEach((testHeight) => {
         QUnit.test(`downArrow should load next page if popup container has ${testHeight % 2 ? "odd" : "even"} height`, (assert) => {
             this.clock.restore();
@@ -4348,6 +4402,30 @@ QUnit.module("keyboard navigation", moduleSetup, () => {
 
         $dropDownButton.trigger("dxclick");
         assert.equal($input.val(), "first", "value has been restored");
+    });
+
+    QUnit.test("Escape key press should be handled by a children keyboard processor", (assert) => {
+
+        const $element = $("#selectBox").dxSelectBox({
+            dataSource: [0, 1, 2],
+            value: 1,
+            focusStateEnabled: true,
+            opened: false,
+            deferRendering: true
+        });
+        const instance = $element.dxSelectBox("instance");
+        const $input = $element.find(toSelector(TEXTEDITOR_INPUT_CLASS));
+        const keyboard = keyboardMock($input);
+        const handler = sinon.stub();
+
+        instance
+            ._keyboardProcessor
+            .attachChildProcessor()
+            .reinitialize(handler, instance);
+
+        keyboard.keyDown("esc");
+
+        assert.ok(handler.calledOnce, "Children keyboard processor can process the 'esc' key pressing");
     });
 });
 
@@ -4908,37 +4986,92 @@ QUnit.module("focus policy", {
     });
 });
 
-QUnit.module("aria accessibility", () => {
-    const checkAsserts = (expectedValues) => {
-        const { role, isActiveDescendant, isOwns, tabIndex, $target } = expectedValues;
-
-        QUnit.assert.strictEqual($target.attr("role"), role, "role");
-        QUnit.assert.strictEqual(!!$target.attr("aria-activedescendant"), isActiveDescendant, "activedescendant");
-        QUnit.assert.strictEqual(!!$target.attr("aria-owns"), isOwns, "owns");
-        QUnit.assert.strictEqual($target.attr("tabIndex"), tabIndex, "tabIndex");
-    };
-
-    if(devices.real().deviceType === "desktop") {
-        [true, false].forEach((searchEnabled) => {
-            QUnit.test(`aria attributes, searchEnabled: ${searchEnabled}`, function() {
-                let $element = $("#selectBox").dxSelectBox({
-                    opened: true,
-                    searchEnabled: searchEnabled
+var helper;
+if(devices.real().deviceType === "desktop") {
+    [true, false].forEach((searchEnabled) => {
+        QUnit.module(`Aria accessibility, searchEnabled: ${searchEnabled}`, {
+            beforeEach: () => {
+                helper = new ariaAccessibilityTestHelper({
+                    createWidget: ($element, options) => new SelectBox($element,
+                        $.extend({
+                            searchEnabled: searchEnabled
+                        }, options))
                 });
+            },
+            afterEach: () => {
+                helper.$widget.remove();
+            }
+        }, () => {
+            QUnit.test(`opened: true -> searchEnabled: ${!searchEnabled}`, () => {
+                helper.createWidget({ opened: true });
 
-                let $input = $element.find(`.${TEXTEDITOR_INPUT_CLASS}`);
+                helper.checkAttributes(helper.widget._list.$element(), { id: helper.widget._listId, "aria-label": "No data to display", role: "listbox" }, "list");
 
-                let list = $(`.${LIST_CLASS}`).dxList("instance");
-                checkAsserts({ $target: list.$element(), role: "listbox", isActiveDescendant: true, isOwns: false, tabIndex: undefined });
-                checkAsserts({ $target: $input, role: "combobox", isActiveDescendant: true, isOwns: false, tabIndex: '0' });
-                checkAsserts({ $target: $element, role: undefined, isActiveDescendant: false, isOwns: true });
+                let inputAttributes = {
+                    role: "combobox",
+                    autocomplete: "off",
+                    "aria-autocomplete": "list",
+                    type: "text",
+                    spellcheck: "false",
+                    "aria-expanded": "true",
+                    "aria-haspopup": "listbox",
+                    tabindex: '0',
+                };
 
-                $element.dxSelectBox("instance").option("searchEnabled", !searchEnabled);
-                $input = $element.find(`.${TEXTEDITOR_INPUT_CLASS}`);
-                checkAsserts({ $target: list.$element(), role: "listbox", isActiveDescendant: true, isOwns: false, tabIndex: undefined });
-                checkAsserts({ $target: $input, role: "combobox", isActiveDescendant: true, isOwns: false, tabIndex: '0' });
-                checkAsserts({ $target: $element, role: undefined, isActiveDescendant: false, isOwns: true });
+                inputAttributes["aria-activedescendant"] = helper.widget._list.getFocusedItemId();
+                inputAttributes["aria-controls"] = helper.widget._listId;
+
+                if(!searchEnabled) {
+                    inputAttributes.readonly = "";
+                }
+                helper.checkAttributes(helper.widget._input(), inputAttributes, "input");
+                helper.checkAttributes(helper.$widget, { "aria-owns": helper.widget._popupContentId }, "widget");
+                helper.checkAttributes(helper.widget._popup.$content(), { id: helper.widget._popupContentId }, "popupContent");
+
+                helper.widget.option("searchEnabled", !searchEnabled);
+                helper.checkAttributes(helper.widget._list.$element(), { id: helper.widget._listId, "aria-label": "No data to display", role: "listbox" }, "list");
+
+                inputAttributes["aria-activedescendant"] = helper.widget._list.getFocusedItemId();
+                inputAttributes["aria-controls"] = helper.widget._listId;
+
+                delete inputAttributes.readonly;
+
+                if(searchEnabled) {
+                    inputAttributes.readonly = "";
+                }
+                helper.checkAttributes(helper.widget._input(), inputAttributes, "input");
+                helper.checkAttributes(helper.$widget, { "aria-owns": helper.widget._popupContentId }, "widget");
+                helper.checkAttributes(helper.widget._popup.$content(), { id: helper.widget._popupContentId }, "popupContent");
+            });
+
+            QUnit.test(`opened: false -> searchEnabled: ${!searchEnabled}`, () => {
+                helper.createWidget({ opened: false });
+
+                let inputAttributes = {
+                    role: "combobox",
+                    autocomplete: "off",
+                    "aria-autocomplete": "list",
+                    type: "text",
+                    spellcheck: "false",
+                    "aria-expanded": "false",
+                    "aria-haspopup": "listbox",
+                    tabindex: '0'
+                };
+                if(!searchEnabled) {
+                    inputAttributes.readonly = "";
+                }
+                helper.checkAttributes(helper.$widget, { }, "widget");
+                helper.checkAttributes(helper.widget._input(), inputAttributes, "input");
+
+                delete inputAttributes.readonly;
+
+                if(searchEnabled) {
+                    inputAttributes.readonly = "";
+                }
+                helper.widget.option("searchEnabled", !searchEnabled);
+                helper.checkAttributes(helper.$widget, { }, "widget");
+                helper.checkAttributes(helper.widget._input(), inputAttributes, "input");
             });
         });
-    }
-});
+    });
+}

@@ -14,25 +14,25 @@ const window = getWindow();
 const FILE_CHUNK_BLOB_NAME = "chunk";
 
 /**
-* @name WebApiFileProvider
+* @name RemoteFileProvider
 * @inherits FileProvider
 * @type object
-* @module ui/file_manager/file_provider/webapi
+* @module ui/file_manager/file_provider/remote
 * @namespace DevExpress.fileProvider
 * @export default
 */
-class WebApiFileProvider extends FileProvider {
+class RemoteFileProvider extends FileProvider {
 
     constructor(options) {
         options = ensureDefined(options, { });
         super(options);
         /**
-         * @name WebApiFileProviderOptions.endpointUrl
+         * @name RemoteFileProviderOptions.endpointUrl
          * @type string
          */
         this._endpointUrl = options.endpointUrl;
         /**
-         * @name WebApiFileProviderOptions.hasSubDirectoriesExpr
+         * @name RemoteFileProviderOptions.hasSubDirectoriesExpr
          * @type string|function(fileItem)
          */
         this._hasSubDirsGetter = compileGetter(options.hasSubDirectoriesExpr || "hasSubDirectories");
@@ -132,8 +132,7 @@ class WebApiFileProvider extends FileProvider {
             .css({ display: "none" })
             .attr({
                 method: "post",
-                action: args.url,
-                enctype: "multipart/form-data"
+                action: args.url
             });
 
         ["command", "arguments"].forEach(name => {
@@ -148,12 +147,10 @@ class WebApiFileProvider extends FileProvider {
 
         eventsEngine.trigger($form, "submit");
 
-        if(eventsEngine.trigger($form, "submit")) {
-            $form.remove();
-        }
+        setTimeout(() => $form.remove());
     }
 
-    getItemsContent(items) {
+    getItemContent(items) {
         const args = this._getDownloadArgs(items);
 
         const formData = new window.FormData();
@@ -165,6 +162,11 @@ class WebApiFileProvider extends FileProvider {
             method: "POST",
             responseType: "arraybuffer",
             data: formData,
+            upload: {
+                onprogress: noop,
+                onloadstart: noop,
+                onabort: noop
+            },
             cache: false
         });
     }
@@ -262,4 +264,4 @@ class WebApiFileProvider extends FileProvider {
 
 }
 
-module.exports = WebApiFileProvider;
+module.exports = RemoteFileProvider;

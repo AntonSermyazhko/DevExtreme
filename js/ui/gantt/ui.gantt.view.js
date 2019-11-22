@@ -9,6 +9,7 @@ export class GanttView extends Widget {
         this._onSelectionChanged = this._createActionByOption("onSelectionChanged");
         this._onScroll = this._createActionByOption("onScroll");
         this._onDialogShowing = this._createActionByOption("onDialogShowing");
+        this._onPopupMenuShowing = this._createActionByOption("onPopupMenuShowing");
     }
     _initMarkup() {
         const { GanttView } = getGanttViewCore();
@@ -27,11 +28,17 @@ export class GanttView extends Widget {
     getTaskAreaContainer() {
         return this._ganttViewCore.taskAreaContainer;
     }
-    changeTaskExpanded(rowIndex, value) {
-        const model = this._ganttViewCore.viewModel;
-        model.beginUpdate();
-        model.changeTaskExpanded(rowIndex, value);
-        model.endUpdate();
+    getBarManager() {
+        return this._ganttViewCore.barManager;
+    }
+    executeCoreCommand(id) {
+        const command = this._ganttViewCore.commandManager.getCommand(id);
+        if(command) {
+            command.execute();
+        }
+    }
+    changeTaskExpanded(id, value) {
+        this._ganttViewCore.changeTaskExpanded(id, value);
     }
     updateView() {
         this._ganttViewCore.updateView();
@@ -41,11 +48,7 @@ export class GanttView extends Widget {
     }
 
     _selectTask(id) {
-        if(this.lastSelectedId !== undefined) {
-            this._ganttViewCore.unselectTask(this.lastSelectedId);
-        }
-        this._ganttViewCore.selectTask(id);
-        this.lastSelectedId = id;
+        this._ganttViewCore.selectTaskById(id);
     }
     _update() {
         this._ganttViewCore.loadOptionsFromGanttOwner();
@@ -118,6 +121,9 @@ export class GanttView extends Widget {
     }
 
     // IGanttOwner
+    get bars() {
+        return this.option("bars");
+    }
     getRowHeight() {
         return this.option("rowHeight");
     }
@@ -156,6 +162,11 @@ export class GanttView extends Widget {
         });
     }
     getModelChangesListener() {
-        return null;
+        return this.option("modelChangesListener");
+    }
+    showPopupMenu(position) {
+        this._onPopupMenuShowing({
+            position: position
+        });
     }
 }

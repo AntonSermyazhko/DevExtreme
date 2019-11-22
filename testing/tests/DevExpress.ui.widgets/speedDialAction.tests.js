@@ -201,14 +201,12 @@ QUnit.module("modify global action button config", (hooks) => {
 
     test("check main fab position after change", (assert) => {
         var firstSDA = $("#fab-one").dxSpeedDialAction().dxSpeedDialAction("instance");
-        $("#fab-two").dxSpeedDialAction();
 
-        const $fabMainElement = $(FAB_MAIN_SELECTOR);
-        const $fabMainContent = $fabMainElement.find(".dx-overlay-content");
+        let $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
         const fabDimensions = 64;
 
-        assert.equal($fabMainContent.offset().top, $(window).height() - fabDimensions, "default position top");
-        assert.equal($fabMainContent.offset().left, $(window).width() - fabDimensions, "default position left");
+        assert.equal($fabMainContent.offset().top, $(window).height() - fabDimensions, "one action - default position top");
+        assert.equal($fabMainContent.offset().left, $(window).width() - fabDimensions, "one action - default position left");
 
         config({
             floatingActionButtonConfig: {
@@ -218,8 +216,35 @@ QUnit.module("modify global action button config", (hooks) => {
 
         firstSDA.repaint();
 
-        assert.equal($fabMainContent.offset().top, 0, "default position top is changed");
-        assert.equal($fabMainContent.offset().left, 0, "default position left is changed");
+        $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+
+        assert.equal($fabMainContent.offset().top, 0, "one action - correct position top after config change");
+        assert.equal($fabMainContent.offset().left, 0, "one action - correct position left after config change");
+
+        $("#fab-two").dxSpeedDialAction();
+
+        $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+
+        assert.equal($fabMainContent.offset().top, 0, "multiple actions - default position top");
+        assert.equal($fabMainContent.offset().left, 0, "multiple actions - default position left");
+
+        config({
+            floatingActionButtonConfig: {
+                position: {
+                    at: "right bottom",
+                    my: "right bottom",
+                    offset: "-16 -16"
+                }
+            }
+        });
+
+        firstSDA.repaint();
+
+        $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+
+        assert.equal($fabMainContent.offset().top, $(window).height() - fabDimensions, "multiple actions - correct position top after config change");
+        assert.equal($fabMainContent.offset().left, $(window).width() - fabDimensions, "multiple actions - correct position left after config change");
+
     });
 });
 
@@ -271,9 +296,14 @@ QUnit.module("add or remove action buttons", (hooks) => {
 });
 
 QUnit.module("check action buttons position", (hooks) => {
+    hooks.beforeEach(() => {
+        fx.off = true;
+    }),
     hooks.afterEach(() => {
         $("#fab-one").dxSpeedDialAction("instance").dispose();
         $("#fab-two").dxSpeedDialAction("instance").dispose();
+
+        fx.off = false;
     }),
 
     test("if container is window", (assert) => {
@@ -335,9 +365,14 @@ QUnit.module("check action buttons position", (hooks) => {
 });
 
 QUnit.module("check action buttons click args", (hooks) => {
+    hooks.beforeEach(() => {
+        fx.off = true;
+    }),
     hooks.afterEach(() => {
         $("#fab-one").dxSpeedDialAction("instance").dispose();
         $("#fab-two").dxSpeedDialAction("instance").dispose();
+
+        fx.off = false;
     }),
 
     test("component", (assert) => {
@@ -370,6 +405,7 @@ QUnit.module("check action buttons click args", (hooks) => {
 QUnit.module("add label option", (hooks) => {
     let firstSDA;
     let secondSDA;
+
     hooks.beforeEach(() => {
         fx.off = true;
     }),
@@ -521,6 +557,8 @@ QUnit.module("add visible option", (hooks) => {
 
         secondSDA.option("visible", false);
 
+        $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+
         $fabMainContent.trigger("dxclick");
 
         assert.ok(clickHandler.calledOnce, "Handler should be called");
@@ -586,8 +624,15 @@ QUnit.module("add shading option", (hooks) => {
         fx.off = false;
     }),
     test("check rendering", (assert) => {
-        const firstSDA = $("#fab-one").dxSpeedDialAction().dxSpeedDialAction("instance");
-        const secondSDA = $("#fab-two").dxSpeedDialAction().dxSpeedDialAction("instance");
+        let firstClickHandler = sinon.spy();
+        let secondClickHandler = sinon.spy();
+
+        const firstSDA = $("#fab-one").dxSpeedDialAction({
+            onClick: firstClickHandler
+        }).dxSpeedDialAction("instance");
+        const secondSDA = $("#fab-two").dxSpeedDialAction({
+            onClick: secondClickHandler
+        }).dxSpeedDialAction("instance");
 
         let $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
 
@@ -613,6 +658,20 @@ QUnit.module("add shading option", (hooks) => {
 
         assert.equal($fabMainContent.closest(".dx-overlay-shader").length, 1, "there is shading after FAB click");
 
+        let $fabContent = $(FAB_SELECTOR).find(".dx-overlay-content");
+
+        $fabContent.eq(1).trigger("dxclick");
+
+        assert.ok(firstClickHandler.calledOnce, "first action handler should be called when there is shading");
+
+        $fabContent.eq(2).trigger("dxclick");
+
+        assert.ok(secondClickHandler.calledOnce, "second action handler should be called when there is shading");
+
+        $(".dx-overlay-shader").trigger("dxpointerdown");
+
+        assert.equal($fabMainContent.closest(".dx-overlay-shader").length, 0, "there is not shading if set value in true before outside click");
+
         config({
             floatingActionButtonConfig: {
                 shading: false
@@ -626,6 +685,22 @@ QUnit.module("add shading option", (hooks) => {
         $fabMainContent.trigger("dxclick");
 
         assert.equal($fabMainContent.closest(".dx-overlay-shader").length, 0, "there is not shading if set value in false after repaint");
+
+        firstClickHandler = sinon.spy();
+        secondClickHandler = sinon.spy();
+
+        firstSDA.option("onClick", firstClickHandler);
+        secondSDA.option("onClick", secondClickHandler);
+
+        $fabContent = $(FAB_SELECTOR).find(".dx-overlay-content");
+
+        $fabContent.eq(1).trigger("dxclick");
+
+        assert.ok(firstClickHandler.calledOnce, "first action handler should be called when there is not shading");
+
+        $fabContent.eq(2).trigger("dxclick");
+
+        assert.ok(secondClickHandler.calledOnce, "second action handler should be called when there is not shading");
 
         firstSDA.dispose();
         secondSDA.dispose();
@@ -710,3 +785,119 @@ QUnit.module("add direction option", (hooks) => {
     });
 });
 
+QUnit.module("add index option", (hooks) => {
+    hooks.beforeEach(() => {
+        fx.off = true;
+    }),
+    hooks.afterEach(() => {
+        fx.off = false;
+    }),
+    test("check rendering", (assert) => {
+        const firstSDA = $("#fab-one").dxSpeedDialAction({
+            index: 1,
+            icon: "add"
+        }).dxSpeedDialAction("instance");
+        const secondSDA = $("#fab-two").dxSpeedDialAction({
+            index: 2,
+            icon: "trash"
+        }).dxSpeedDialAction("instance");
+
+        let $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+        let $fabContent = $(FAB_SELECTOR).find(".dx-overlay-content");
+
+        const fabDimensions = 30;
+
+        $fabMainContent.trigger("dxclick");
+
+        assert.equal($(window).height() - $fabContent.eq(1).offset().top - fabDimensions, 80, "add action is first");
+        assert.equal($(window).height() - $fabContent.eq(2).offset().top - fabDimensions, 120, "trash action is second");
+
+
+        firstSDA.option("index", 2);
+        secondSDA.option("index", 1);
+
+        $fabMainContent.trigger("dxclick");
+
+        $fabContent = $(FAB_SELECTOR).find(".dx-overlay-content");
+
+        assert.equal($(window).height() - $fabContent.eq(1).offset().top - fabDimensions, 120, "trash action is first");
+        assert.equal($(window).height() - $fabContent.eq(2).offset().top - fabDimensions, 80, "add action is second");
+
+        firstSDA.option("index", 5);
+        secondSDA.option("index", -1);
+
+        $fabMainContent.trigger("dxclick");
+
+        $fabContent = $(FAB_SELECTOR).find(".dx-overlay-content");
+
+        assert.equal($(window).height() - $fabContent.eq(1).offset().top - fabDimensions, 120, "trash action is first");
+        assert.equal($(window).height() - $fabContent.eq(2).offset().top - fabDimensions, 80, "add action is second");
+
+
+        firstSDA.dispose();
+        secondSDA.dispose();
+    });
+});
+
+QUnit.module("check action buttons events", (hooks) => {
+    hooks.beforeEach(() => {
+        fx.off = true;
+    }),
+
+    hooks.afterEach(() => {
+        fx.off = false;
+
+        $("#fab-one").dxSpeedDialAction("instance").dispose();
+        $("#fab-two").dxSpeedDialAction("instance").dispose();
+    }),
+    test("trigger and args", (assert) => {
+        const contentReadyStub = sinon.stub();
+        const initializedStub = sinon.stub();
+        const clickStub = sinon.stub();
+
+        $("#fab-one")
+            .dxSpeedDialAction()
+            .dxSpeedDialAction("instance")
+            .on("contentReady", contentReadyStub)
+            .on("initialized", initializedStub)
+            .on("click", clickStub);
+
+
+        let $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+
+        $fabMainContent.trigger("dxclick");
+
+        const clickArgs = clickStub.getCall(0).args;
+
+        assert.equal(clickArgs[0].component.NAME, "dxSpeedDialAction", "right first SDA click component in args");
+        assert.ok($(clickArgs[0].actionElement).hasClass("dx-overlay"), "right first SDA click actionElement in args");
+        assert.equal($(clickArgs[0].element).attr("id"), "fab-one", "right first SDA click element in args");
+        assert.ok(clickArgs[0].event, "first SDA click event in args");
+
+
+        const contentReadyTwoStub = sinon.stub();
+        $("#fab-two")
+            .dxSpeedDialAction()
+            .dxSpeedDialAction("instance")
+            .on("contentReady", contentReadyTwoStub);
+
+        $fabMainContent = $(FAB_MAIN_SELECTOR).find(".dx-overlay-content");
+
+        $fabMainContent.trigger("dxclick");
+
+        const contentReadyArgs = contentReadyStub.getCall(0).args;
+        assert.equal(contentReadyArgs[0].component.NAME, "dxSpeedDialAction", "right first SDA content ready component in args");
+        assert.ok(contentReadyArgs[0].actionElement.hasClass("dx-overlay"), "right first SDA content ready actionElement in args");
+        assert.equal($(contentReadyArgs[0].element).attr("id"), "fab-one", "right first SDA content ready element in args");
+
+        const contentReadyTwoArgs = contentReadyTwoStub.getCall(0).args;
+        assert.equal(contentReadyTwoArgs[0].component.NAME, "dxSpeedDialAction", "right second SDA content ready component in args");
+        assert.ok(contentReadyTwoArgs[0].actionElement.hasClass("dx-overlay"), "right second SDA content ready actionElement in args");
+        assert.equal($(contentReadyTwoArgs[0].element).attr("id"), "fab-two", "right second SDA content ready element in args");
+
+        const initializedArgs = initializedStub.getCall(0).args;
+        assert.equal(initializedArgs[0].component.NAME, "dxSpeedDialAction", "right first SDA initialized component in args");
+        assert.ok(initializedArgs[0].actionElement.hasClass("dx-overlay"), "right first SDA initialized actionElement in args");
+        assert.equal($(initializedArgs[0].element).attr("id"), "fab-one", "right first SDA initialized element in args");
+    });
+});

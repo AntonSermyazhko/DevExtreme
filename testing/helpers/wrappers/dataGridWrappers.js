@@ -1,13 +1,43 @@
 import { WrapperBase } from './wrapperBase.js';
 
-export class DataGridWrapper {
-    constructor(containerSelector) {
-        this.pager = new PagerWrapper(containerSelector);
-        this.filterPanel = new FilterPanelWrapper(containerSelector);
-        this.headerPanel = new HeaderPanelWrapper(containerSelector);
-        this.headers = new HeadersWrapper(containerSelector);
-        this.filterRow = new FilterRowWrapper(containerSelector);
-        this.rowsView = new RowsViewWrapper(containerSelector);
+const FOCUS_OVERLAY_POSTFIX_CLASS = "focus-overlay";
+const COMMAND_ADAPTIVE_CLASS = "dx-command-adaptive";
+const COMMAND_ADAPTIVE_HIDDEN_CLASS = "dx-command-adaptive-hidden";
+const FILTER_BUILDER_CLASS = "dx-filterbuilder";
+const FILTER_BUILDER_GROUP_CLASS = "dx-filterbuilder-group";
+const FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS = "dx-filterbuilder-item-value-text";
+const FILTER_BUILDER_TEXT_PART_CLASS = "dx-filterbuilder-text-part";
+const HEADER_FILTER_MENU_CLASS = "dx-header-filter-menu";
+const LIST_ITEM_CLASS = "dx-list-item";
+const BUTTON_CLASS = "dx-button";
+const FOCUSED_ROW_CLASS = "dx-row-focused";
+const SELECTED_ROW_CLASS = "dx-selection";
+const DATA_GRID_PREFIX = "dx-datagrid";
+const DATA_ROW_CLASS = "dx-data-row";
+const TREELIST_PREFIX = "dx-treelist";
+const TEXTEDITOR_INPUT_CLASS = "dx-texteditor-input";
+const NEW_ROW_CLASS = "dx-row-inserted";
+const FIXED_CONTENT_CLASS = "dx-datagrid-content-fixed";
+const HEADER_COLUMN_INDICATORS_CLASS = "dx-column-indicators";
+const GRID_TABLE_CLASS = "dx-datagrid-table";
+const FREE_SPACE_ROW = "dx-freespace-row";
+const ROW_CLASS = "dx-row";
+
+class GridWrapper extends WrapperBase {
+    constructor(containerSelector, widgetPrefix) {
+        super(containerSelector);
+        this.pager = new PagerWrapper(containerSelector, widgetPrefix);
+        this.filterPanel = new FilterPanelWrapper(containerSelector, widgetPrefix);
+        this.headerPanel = new HeaderPanelWrapper(containerSelector, widgetPrefix);
+        this.headers = new HeadersWrapper(containerSelector, widgetPrefix);
+        this.filterRow = new FilterRowWrapper(containerSelector, widgetPrefix);
+        this.rowsView = new RowsViewWrapper(containerSelector, widgetPrefix);
+        this.filterBuilder = new FilterBuilderWrapper("BODY", widgetPrefix);
+        this.columns = new ColumnWrapper(containerSelector, widgetPrefix);
+    }
+
+    getElement() {
+        return this.getContainer();
     }
 
     isEditorCell($cell) {
@@ -15,19 +45,49 @@ export class DataGridWrapper {
     }
 }
 
-export class ColumnWrapper extends WrapperBase {
+export default class DataGridWrapper extends GridWrapper {
+    constructor(containerSelector) {
+        super(containerSelector, DATA_GRID_PREFIX);
+    }
+}
+
+export class TreeListWrapper extends GridWrapper {
+    constructor(containerSelector) {
+        super(containerSelector, TREELIST_PREFIX);
+    }
+}
+
+class GridElement extends WrapperBase {
+    constructor(containerSelector, widgetPrefix = "dx-datagrid") {
+        super(containerSelector);
+        this.widgetPrefix = widgetPrefix;
+    }
+}
+
+class GridTableElement extends GridElement {
+    getTable() {
+        return this.getElement().find(`.${GRID_TABLE_CLASS}`);
+    }
+}
+
+export class ColumnWrapper extends GridElement {
     getCommandButtons() {
         return this.getContainer().find("td[class*='dx-command'] .dx-link");
     }
 }
 
-export class RowsViewWrapper extends WrapperBase {
+export class RowsViewWrapper extends GridTableElement {
+    constructor(containerSelector, widgetPrefix) {
+        super(containerSelector);
+        this.widgetPrefix = widgetPrefix;
+    }
+
     getElement() {
-        return this.getContainer().find(".dx-datagrid-rowsview");
+        return this.getContainer().find(`.${this.widgetPrefix}-rowsview`);
     }
 
     getVirtualRowElement() {
-        return this.getElement().find(".dx-virtual-row");
+        return this.getContainer().find(`:not(.${FIXED_CONTENT_CLASS}) .dx-virtual-row`);
     }
 
     getVirtualCell(columnIndex) {
@@ -35,19 +95,55 @@ export class RowsViewWrapper extends WrapperBase {
     }
 
     getRowElement(rowIndex) {
-        return this.getElement().find(".dx-row").eq(rowIndex);
+        return this.getElement().find(`:not(.${FIXED_CONTENT_CLASS}) .dx-row`).eq(rowIndex);
+    }
+
+    getFreeSpaceRow() {
+        return this.getElement().find(`.${ROW_CLASS}.${FREE_SPACE_ROW}`);
+    }
+
+    getFixedDataRowElement(rowIndex) {
+        return this.getElement().find(`.${FIXED_CONTENT_CLASS} .${DATA_ROW_CLASS}`).eq(rowIndex);
     }
 
     getCellElement(rowIndex, columnIndex) {
-        return this.getElement().find(".dx-data-row").eq(rowIndex).find("td").eq(columnIndex);
+        return this.getRowElement(rowIndex).find("td").eq(columnIndex);
+    }
+
+    getSelectCheckBox(rowIndex, columnIndex) {
+        return this.getCellElement(rowIndex, columnIndex).find('.dx-select-checkbox');
     }
 
     getDataRowElement(rowIndex) {
-        return this.getElement().find(".dx-data-row").eq(rowIndex);
+        return this.getElement().find(`:not(.${FIXED_CONTENT_CLASS}) .${DATA_ROW_CLASS}`).eq(rowIndex);
     }
 
-    getEditorInputElement(rowIndex, columnIndex) {
-        return this.getCellElement(rowIndex, columnIndex).find(".dx-texteditor-input");
+    getDataCellElement(rowIndex, columnIndex) {
+        return this.getDataRowElement(rowIndex).find("td").eq(columnIndex);
+    }
+
+    getFixedDataCellElement(rowIndex, columnIndex) {
+        return this.getFixedDataRowElement(rowIndex).find("td").eq(columnIndex);
+    }
+
+    getDataRowElementCount() {
+        return this.getElement().find(`:not(.${FIXED_CONTENT_CLASS}) .${DATA_ROW_CLASS}`).length;
+    }
+
+    getRowAdaptiveElement(rowIndex) {
+        return this.getDataRowElement(rowIndex).find(`.${COMMAND_ADAPTIVE_CLASS}`);
+    }
+
+    isRowAdaptiveVisible(rowIndex) {
+        return !this.getRowAdaptiveElement(rowIndex).hasClass(COMMAND_ADAPTIVE_HIDDEN_CLASS);
+    }
+
+    getEditorInput(rowIndex, columnIndex) {
+        return this.getDataRowElement(rowIndex).find("td").eq(columnIndex).find(`.${TEXTEDITOR_INPUT_CLASS}`);
+    }
+
+    hasEditorInputElement(rowIndex, columnIndex) {
+        return this.getEditorInput(rowIndex, columnIndex).length > 0;
     }
 
     getSelectionCheckBoxElement(rowIndex) {
@@ -57,6 +153,18 @@ export class RowsViewWrapper extends WrapperBase {
     isRowVisible(rowIndex, precision) {
         const $row = this.getRowElement(rowIndex);
         return this._isInnerElementVisible($row, precision);
+    }
+
+    isFocusedRow(rowIndex) {
+        return this.getDataRowElement(rowIndex).hasClass(FOCUSED_ROW_CLASS);
+    }
+
+    isSelectedRow(rowIndex) {
+        return this.getDataRowElement(rowIndex).hasClass(SELECTED_ROW_CLASS);
+    }
+
+    isNewRow(rowIndex) {
+        return this.getDataRowElement(rowIndex).hasClass(NEW_ROW_CLASS);
     }
 
     _isInnerElementVisible($element, precision = 0) {
@@ -72,20 +180,33 @@ export class RowsViewWrapper extends WrapperBase {
         return this.getCellElement(rowIndex, columnIndex).hasClass("dx-focused");
     }
 
+    findFocusOverlay() {
+        return this.getElement().find(`.${this.widgetPrefix}-${FOCUS_OVERLAY_POSTFIX_CLASS}`);
+    }
+
     isFocusOverlayVisible() {
-        return !!this.getElement().find(".dx-datagrid-focus-overlay:visible").length;
+        const $focusOverlay = this.findFocusOverlay();
+        return $focusOverlay.length && !this.findFocusOverlay().hasClass("dx-hidden");
+    }
+
+    getFocusedRow() {
+        return this.getElement().find(`.${FOCUSED_ROW_CLASS}`);
+    }
+
+    hasFocusedRow() {
+        return this.getFocusedRow().length > 0;
     }
 }
 
-export class PagerWrapper extends WrapperBase {
-    constructor(containerSelector) {
-        super(containerSelector);
-        this.PAGE_SIZES_SELECTOR = ".dx-datagrid-pager .dx-page-sizes";
-        this.PAGES_SELECTOR = ".dx-datagrid-pager .dx-pages";
+export class PagerWrapper extends GridElement {
+    constructor(containerSelector, widgetPrefix) {
+        super(containerSelector, widgetPrefix);
+        this.PAGE_SIZES_SELECTOR = `.${this.widgetPrefix}-pager .dx-page-sizes`;
+        this.PAGES_SELECTOR = `.${this.widgetPrefix}-pager .dx-pages`;
     }
 
     getElement() {
-        return this.getContainer().find(".dx-datagrid-pager");
+        return this.getContainer().find(`.${this.widgetPrefix}-pager`);
     }
 
     getPagerPageSizeElements() {
@@ -120,9 +241,9 @@ export class PagerWrapper extends WrapperBase {
     }
 }
 
-export class FilterPanelWrapper extends WrapperBase {
+export class FilterPanelWrapper extends GridElement {
     getElement() {
-        return this.getContainer().find(".dx-datagrid-filter-panel");
+        return this.getContainer().find(`.${this.widgetPrefix}-filter-panel`);
     }
 
     getIconFilter() {
@@ -130,35 +251,43 @@ export class FilterPanelWrapper extends WrapperBase {
     }
 
     getPanelText() {
-        return this.getElement().find(".dx-datagrid-filter-panel-text");
+        return this.getElement().find(`.${this.widgetPrefix}-filter-panel-text`);
     }
 
     getClearFilterButton() {
-        return this.getElement().find(".dx-datagrid-filter-panel-clear-filter");
+        return this.getElement().find(`.${this.widgetPrefix}-filter-panel-clear-filter`);
     }
 }
 
-export class FilterRowWrapper extends WrapperBase {
+export class FilterRowWrapper extends GridElement {
     getElement() {
-        return this.getContainer().find(".dx-datagrid-filter-row");
+        return this.getContainer().find(`.${this.widgetPrefix}-filter-row`).eq(0);
+    }
+
+    getTextEditor(index) {
+        return this.getElement().find(".dx-texteditor").eq(index);
     }
 
     getTextEditorInput(index) {
-        return this.getElement().find(".dx-texteditor-input").eq(index);
+        return this.getElement().find(`.${TEXTEDITOR_INPUT_CLASS}`).eq(index);
+    }
+
+    getEditorCell(index) {
+        return this.getElement().find(".dx-editor-cell").eq(index);
     }
 
     getMenuElement(index) {
-        return this.getElement().find(".dx-editor-cell").eq(index).find(".dx-menu");
+        return this.getEditorCell(index).find(".dx-menu");
     }
 }
 
-export class HeaderPanelWrapper extends WrapperBase {
+export class HeaderPanelWrapper extends GridElement {
     getElement() {
-        return this.getContainer().find(".dx-datagrid-header-panel");
+        return this.getContainer().find(`.${this.widgetPrefix}-header-panel`);
     }
 
     getGroupPanelElement() {
-        return this.getElement().find(".dx-datagrid-group-panel");
+        return this.getElement().find(`.${this.widgetPrefix}-group-panel`);
     }
 
     getGroupPanelItem(index) {
@@ -166,17 +295,57 @@ export class HeaderPanelWrapper extends WrapperBase {
     }
 }
 
-export class HeadersWrapper extends WrapperBase {
+export class HeadersWrapper extends GridTableElement {
     getElement() {
-        return this.getContainer().find(".dx-datagrid-headers");
+        return this.getContainer().find(`.${this.widgetPrefix}-headers`);
     }
 
     getHeaderItem(rowIndex, columnIndex) {
         return this.getElement().find(".dx-header-row").eq(rowIndex).find("td").eq(columnIndex);
     }
 
+    getHeaderItemTextContent(rowIndex, columnIndex) {
+        return this.getHeaderItem(rowIndex, columnIndex).find(`.${this.widgetPrefix}-text-content`).eq(0).text();
+    }
+
     getHeaderFilterItem(rowIndex, columnIndex) {
         return this.getHeaderItem(rowIndex, columnIndex).find(".dx-header-filter");
     }
+
+    getColumnsIndicators() {
+        return this.getElement().find(`.${HEADER_COLUMN_INDICATORS_CLASS}`);
+    }
 }
 
+export class FilterBuilderWrapper extends GridElement {
+    constructor(containerSelector) {
+        super(containerSelector);
+        this.headerFilterMenu = new HeaderFilterMenu(containerSelector);
+    }
+
+    getElement() {
+        return this.getContainer().find(`.${FILTER_BUILDER_CLASS}.dx-widget`);
+    }
+
+    getItemValueTextElement(index = 0) {
+        return this.getElement().find(`.${FILTER_BUILDER_GROUP_CLASS}:nth-child(${index + 1})`).find(`.${FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS}`);
+    }
+
+    getItemValueTextParts(index = 0) {
+        return this.getItemValueTextElement(index).find(`.${FILTER_BUILDER_TEXT_PART_CLASS}`);
+    }
+}
+
+export class HeaderFilterMenu extends GridElement {
+    getElement() {
+        return this.getContainer().find(`.${HEADER_FILTER_MENU_CLASS}`);
+    }
+
+    getDropDownListItem(index) {
+        return this.getElement().find(`.${LIST_ITEM_CLASS}:nth-child(${index + 1})`);
+    }
+
+    getButtonOK() {
+        return this.getElement().find(`.${BUTTON_CLASS}[aria-label='OK']`);
+    }
+}

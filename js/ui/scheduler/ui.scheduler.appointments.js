@@ -20,9 +20,7 @@ import dblclickEvent from "../../events/double_click";
 import dateLocalization from "../../localization/date";
 import messageLocalization from "../../localization/message";
 import CollectionWidget from "../collection/ui.collection_widget.edit";
-import Draggable from "../draggable";
 import { Deferred } from "../../core/utils/deferred";
-import AppointmentDragBehavior from "./appointmentDragBehavior";
 
 const APPOINTMENT_SETTINGS_NAME = "dxAppointmentSettings";
 
@@ -41,7 +39,6 @@ const toMs = dateUtils.dateToMilliseconds;
 var SchedulerAppointments = CollectionWidget.inherit({
     ctor: function(element, options) {
         this.callBase(element, options);
-        this.dragBehavior = new AppointmentDragBehavior(this);
     },
 
     _supportedKeys: function() {
@@ -344,8 +341,8 @@ var SchedulerAppointments = CollectionWidget.inherit({
     },
 
     _renderAppointmentTemplate: function($container, data, model) {
-        var startDate = model.settings ? new Date(this.invoke("getField", "startDate", model.settings)) : data.startDate,
-            endDate = model.settings ? new Date(this.invoke("getField", "endDate", model.settings)) : data.endDate;
+        var startDate = model.appointmentData.settings ? new Date(this.invoke("getField", "startDate", model.appointmentData.settings)) : (data.recurrenceRule ? model.targetedAppointmentData.startDate : data.startDate),
+            endDate = model.appointmentData.settings ? new Date(this.invoke("getField", "endDate", model.appointmentData.settings)) : (data.recurrenceRule ? model.targetedAppointmentData.endDate : data.endDate);
 
         if(isNaN(startDate) || isNaN(endDate)) {
             startDate = data.startDate;
@@ -405,7 +402,7 @@ var SchedulerAppointments = CollectionWidget.inherit({
             action({
                 appointmentElement: itemElement,
                 appointmentData: itemData,
-                targetedAppointmentData: this.invoke("getTargetedAppointmentData", itemData, itemElement, index)
+                targetedAppointmentData: this.invoke("getTargetedAppointmentData", itemData, itemElement)
             });
         }
         delete this._currentAppointmentSettings;
@@ -496,10 +493,16 @@ var SchedulerAppointments = CollectionWidget.inherit({
     },
 
     _createItemByTemplate: function(itemTemplate, renderArgs) {
+        const { itemData, container, index } = renderArgs;
+        const recurrenceRule = this.invoke("getField", "recurrenceRule", itemData);
+
         return itemTemplate.render({
-            model: renderArgs.itemData,
-            container: renderArgs.container,
-            index: renderArgs.index
+            model: {
+                appointmentData: itemData,
+                targetedAppointmentData: this.invoke("getTargetedAppointmentData", itemData, $(container).parent(), !!recurrenceRule)
+            },
+            container: container,
+            index: index
         });
     },
 
@@ -555,8 +558,6 @@ var SchedulerAppointments = CollectionWidget.inherit({
                     $appointment.css("backgroundColor", color);
                 }
             });
-
-            this.option("allowDrag") && this.dragBehavior.addTo($appointment);
         }
     },
 
@@ -814,7 +815,7 @@ var SchedulerAppointments = CollectionWidget.inherit({
                 height: buttonHeight,
                 onAppointmentClick: this.option("onItemClick"),
                 isCompact: this.invoke("isAdaptive") || this._isGroupCompact(virtualGroup),
-                applyOffset: this._isGroupCompact(virtualGroup)
+                applyOffset: !virtualGroup.isAllDay && this.invoke("isApplyCompactAppointmentOffset")
             });
         }).bind(this));
     },
@@ -941,25 +942,20 @@ var SchedulerAppointments = CollectionWidget.inherit({
         return obj;
     },
 
-    updateDraggablesBoundOffsets: function() {
-        if(this.option("allowDrag")) {
-            this.$element().find("." + APPOINTMENT_ITEM_CLASS).each((function(_, appointmentElement) {
-                var $appointment = $(appointmentElement),
-                    appointmentData = this._getItemData($appointment);
-
-                if(!this.invoke("isAllDay", appointmentData)) {
-                    Draggable.getInstance($appointment).option("boundOffset", this._calculateBoundOffset());
-                }
-            }).bind(this));
-        }
-    },
-
-    moveAppointmentBack: function() {
+    moveAppointmentBack: function(dragEvent) {
         var $appointment = this._$currentAppointment,
             size = this._initialSize,
             coords = this._initialCoordinates;
 
-        this.dragBehavior.moveBack();
+        if(dragEvent) {
+            if(typeUtils.isDeferred(dragEvent.cancel)) {
+                dragEvent.cancel.resolve(true);
+            } else {
+                dragEvent.cancel = true;
+            }
+        }
+
+        this.notifyObserver("moveBack");
 
         if($appointment) {
             if(coords) {

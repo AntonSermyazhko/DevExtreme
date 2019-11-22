@@ -53,7 +53,7 @@ const TagBox = SelectBox.inherit({
         const parent = this.callBase();
         const sendToList = (e) => this._list._keyboardProcessor.process(e);
 
-        return extend(parent, {
+        return extend({}, parent, {
             backspace: function(e) {
                 if(!this._isCaretAtTheStart()) {
                     return;
@@ -77,8 +77,14 @@ const TagBox = SelectBox.inherit({
                 this._removeTagElement($tagToDelete);
                 delete this._preserveFocusedTag;
             },
-            upArrow: sendToList,
-            downArrow: sendToList,
+            upArrow: (e) => {
+                const handler = e.altKey || !this._list ? parent.upArrow : sendToList;
+                return handler.apply(this, arguments);
+            },
+            downArrow: (e) => {
+                const handler = e.altKey || !this._list ? parent.downArrow : sendToList;
+                return handler.apply(this, arguments);
+            },
             del: function(e) {
                 if(!this._$focusedTag || !this._isCaretAtTheStart()) {
                     return;
@@ -265,6 +271,7 @@ const TagBox = SelectBox.inherit({
             /**
             * @name dxTagBoxOptions.value
             * @type Array<string,number,Object>
+            * @default []
             */
             value: [],
 
@@ -744,12 +751,12 @@ const TagBox = SelectBox.inherit({
     _renderInputSize: function() {
         const $input = this._input();
         const value = $input.val();
+        const isEmptyInput = isString(value) && value;
         const cursorWidth = 5;
         let width = "";
         let size = "";
-        const canTypeText = this.option("searchEnabled") || this.option("editEnabled");
-
-        if(value && canTypeText) {
+        const canTypeText = this.option("searchEnabled") || this.option("acceptCustomValue");
+        if(isEmptyInput && canTypeText) {
             const $calculationElement = createTextElementHiddenCopy($input, value, { includePaddings: true });
 
             $calculationElement.insertAfter($input);
@@ -893,13 +900,43 @@ const TagBox = SelectBox.inherit({
         }
     },
 
+    _isGroupedData: function() {
+        return this.option("grouped") && !this._dataSource.group();
+    },
+
+    _getItemsByValues: function(values) {
+        var resultItems = [];
+        values.forEach(function(value) {
+            var item = this._getItemFromPlain(value);
+            if(isDefined(item)) {
+                resultItems.push(item);
+            }
+        }.bind(this));
+        return resultItems;
+    },
+
+    _getFilteredGroupedItems: function(values) {
+        var selectedItems = new Deferred();
+        if(!this._dataSource.items().length) {
+            this._dataSource.load().done(function() {
+                selectedItems.resolve(this._getItemsByValues(values));
+            }.bind(this)).fail(selectedItems.resolve([]));
+        } else {
+            selectedItems.resolve(this._getItemsByValues(values));
+        }
+
+        return selectedItems.promise();
+    },
+
     _loadTagsData: function() {
         const values = this._getValue();
         const tagData = new Deferred();
 
         this._selectedItems = [];
 
-        this._getFilteredItems(values)
+        var filteredItemsPromise = this._isGroupedData() ? this._getFilteredGroupedItems(values) : this._getFilteredItems(values);
+
+        filteredItemsPromise
             .done((filteredItems) => {
                 const items = this._createTagsData(values, filteredItems);
                 items.always(function(data) {
@@ -1358,6 +1395,11 @@ const TagBox = SelectBox.inherit({
 
     reset: function() {
         this._restoreInputText();
+        const defaultValue = this._getDefaultOptions().value,
+            currentValue = this.option("value");
+        if(defaultValue && defaultValue.length === 0 && currentValue && defaultValue.length === currentValue.length) {
+            return;
+        }
         this.callBase();
     },
 

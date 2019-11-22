@@ -192,6 +192,10 @@ function validateAxisOptions(options) {
     options.position = position;
     options.hoverMode = options.hoverMode ? options.hoverMode.toLowerCase() : "none";
     labelOptions.minSpacing = isDefined(labelOptions.minSpacing) ? labelOptions.minSpacing : DEFAULT_AXIS_LABEL_SPACING;
+
+    options.type && (options.type = options.type.toLowerCase());
+    options.argumentType && (options.argumentType = options.argumentType.toLowerCase());
+    options.valueType && (options.valueType = options.valueType.toLowerCase());
 }
 
 function getOptimalAngle(boxes, labelOpt) {
@@ -886,6 +890,7 @@ Axis.prototype = {
         var that = this,
             labelOpt = options.label;
 
+        validateAxisOptions(options);
         that._options = options;
 
         options.tick = options.tick || {};
@@ -900,8 +905,6 @@ Axis.prototype = {
             argumentType: options.argumentType,
             valueType: options.valueType
         };
-
-        validateAxisOptions(options);
         that._setTickOffset();
 
         that._isHorizontal = options.isHorizontal;
@@ -1649,8 +1652,8 @@ Axis.prototype = {
 
         if(that.isArgumentAxis && margins.checkInterval) {
             rangeInterval = that._calculateRangeInterval(dataRange.interval);
-            if(isFinite(rangeInterval)) {
-                const pxInterval = translator.getInterval(rangeInterval);
+            const pxInterval = translator.getInterval(rangeInterval);
+            if(isFinite(pxInterval)) {
                 interval = Math.ceil(pxInterval / (2 * getConvertIntervalCoefficient(pxInterval)));
             } else {
                 rangeInterval = 0;
@@ -1680,12 +1683,14 @@ Axis.prototype = {
 
         const percentStick = margins.percentStick && !this.isArgumentAxis;
 
-        if(percentStick && _abs(dataRange.max) === 1) {
-            maxPercentPadding = maxPadding = 0;
-        }
+        if(percentStick) {
+            if(_abs(dataRange.max) === 1) {
+                maxPadding = 0;
+            }
 
-        if(percentStick && _abs(dataRange.min) === 1) {
-            minPercentPadding = minPadding = 0;
+            if(_abs(dataRange.min) === 1) {
+                minPadding = 0;
+            }
         }
 
         const canvasStartEnd = that._getCanvasStartEnd();

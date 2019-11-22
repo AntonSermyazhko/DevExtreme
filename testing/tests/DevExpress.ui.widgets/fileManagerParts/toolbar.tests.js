@@ -58,7 +58,7 @@ QUnit.module("Toolbar", moduleConfig, () => {
         let $elements = this.wrapper.getToolbarElements();
         assert.equal($elements.length, 3, "has buttons");
 
-        assert.ok($elements.eq(0).text().indexOf("New folder") !== -1, "create folder button displayed");
+        assert.ok($elements.eq(0).text().indexOf("New directory") !== -1, "create folder button displayed");
         assert.ok($elements.eq(1).text().indexOf("Upload files") !== -1, "upload files button displayed");
         assert.ok($elements.eq(2).val().indexOf("Thumbnails") !== -1, "view switcher displayed");
 
@@ -112,7 +112,7 @@ QUnit.module("Toolbar", moduleConfig, () => {
         let $elements = this.wrapper.getToolbarElements();
         assert.equal($elements.length, 3, "has buttons");
 
-        assert.ok($elements.eq(0).text().indexOf("New folder") !== -1, "create folder button displayed");
+        assert.ok($elements.eq(0).text().indexOf("New directory") !== -1, "create folder button displayed");
         assert.ok($elements.eq(1).text().indexOf("Upload files") !== -1, "upload files button displayed");
         assert.ok($elements.eq(2).val().indexOf("Details") !== -1, "view switcher displayed");
 
@@ -241,7 +241,7 @@ QUnit.module("Toolbar", moduleConfig, () => {
         $toolbarDropDownMenuButton.trigger("dxclick");
         this.clock.tick(400);
         const toolbarDropDownMenuItem = this.wrapper.getToolbarDropDownMenuItem(0);
-        assert.ok($(toolbarDropDownMenuItem).find(".dx-button-text").text().indexOf("New folder") !== -1, "create folder button is rendered in the dropDown menu");
+        assert.ok($(toolbarDropDownMenuItem).find(".dx-button-text").text().indexOf("New directory") !== -1, "create folder button is rendered in the dropDown menu");
 
         assert.ok($elements.eq(2).val().indexOf("Details") !== -1, "view switcher is rendered in new location");
         assert.ok($elements.eq(3).text().indexOf("Reinvigorate") !== -1, "refresh button is rendered with new text");
@@ -391,6 +391,51 @@ QUnit.module("Toolbar", moduleConfig, () => {
 
         let $toolbar = this.wrapper.getToolbar();
         assert.ok($toolbar.hasClass(Consts.FILE_TOOLBAR_CLASS), "file toolbar displayed");
+    });
+
+    test("itemView selectbox must show correct state", function(assert) {
+        createFileManager(false);
+        this.clock.tick(400);
+
+        const fileManagerInstance = $("#fileManager").dxFileManager("instance");
+        fileManagerInstance.option("itemView.mode", "thumbnails");
+        this.clock.tick(400);
+
+        let $selectBox = this.wrapper.getGeneralToolbarElements().last();
+        assert.equal($selectBox.val(), "Thumbnails View", "Thumbnails View");
+
+        $selectBox.trigger("dxclick");
+        this.clock.tick(400);
+        let detailsViewSelector = this.wrapper.getToolbarViewSwitcherListItem(1);
+        $(detailsViewSelector).trigger("dxclick");
+        this.clock.tick(400);
+
+        $selectBox = this.wrapper.getGeneralToolbarElements().last();
+        assert.equal($selectBox.val(), "Details View", "Details View");
+
+        this.wrapper.findDetailsItem("File 1.txt").trigger("dxclick");
+        this.wrapper.getDetailsItemList().trigger("click");
+        this.clock.tick(400);
+        this.wrapper.getToolbarButton("Rename").trigger("dxclick");
+        this.clock.tick(400);
+        this.wrapper.getDialogTextInput()
+            .val("New filename.txt")
+            .trigger("change");
+        this.wrapper.getDialogButton("Save").trigger("dxclick");
+        this.clock.tick(400);
+        assert.equal(this.wrapper.getDetailsItemName(0), "New filename.txt", "File renamed");
+
+        $selectBox = this.wrapper.getGeneralToolbarElements().last();
+        assert.equal($selectBox.val(), "Details View", "Details View");
+
+        $selectBox.trigger("dxclick");
+        this.clock.tick(400);
+        detailsViewSelector = this.wrapper.getToolbarViewSwitcherListItem(0);
+        $(detailsViewSelector).trigger("dxclick");
+        this.clock.tick(400);
+
+        $selectBox = this.wrapper.getGeneralToolbarElements().last();
+        assert.equal($selectBox.val(), "Thumbnails View", "Thumbnails View");
     });
 
 });

@@ -1948,8 +1948,8 @@ var dxChart = {
     annotations: [{}],
     /**
     * @name dxChartOptions.customizeAnnotation
-    * @type function(annotationItem)
-    * @type_function_param1 annotationItem:dxChartAnnotationConfig|any
+    * @type function(annotation)
+    * @type_function_param1 annotation:dxChartAnnotationConfig|any
     * @type_function_return dxChartAnnotationConfig
     * @default undefined
     * @notUsedInTheme
@@ -3271,15 +3271,13 @@ var dxPolarChart = {
     * @type function(e)
     * @type_function_param1 e:object
     * @type_function_param1_field4 event:event
-    * @type_function_param1_field5 rangeStart:Date|Number:deprecated(range)
-    * @type_function_param1_field6 rangeEnd:Date|Number:deprecated(range)
-    * @type_function_param1_field7 axis:chartAxisObject
-    * @type_function_param1_field8 range:VizRange
-    * @type_function_param1_field9 previousRange:VizRange
-    * @type_function_param1_field10 cancel:boolean
-    * @type_function_param1_field11 actionType:Enums.ChartZoomPanActionType
-    * @type_function_param1_field12 zoomFactor:Number
-    * @type_function_param1_field13 shift:Number
+    * @type_function_param1_field5 axis:chartAxisObject
+    * @type_function_param1_field6 range:VizRange
+    * @type_function_param1_field7 previousRange:VizRange
+    * @type_function_param1_field8 cancel:boolean
+    * @type_function_param1_field9 actionType:Enums.ChartZoomPanActionType
+    * @type_function_param1_field10 zoomFactor:Number
+    * @type_function_param1_field11 shift:Number
     * @notUsedInTheme
     * @action
     */
@@ -3810,7 +3808,7 @@ var dxChartCommonAnnotationConfig = {
     * @name dxChartCommonAnnotationConfig.template
     * @type template|function
     * @default undefined
-    * @type_function_param1 annotationItem:dxChartAnnotationConfig|any
+    * @type_function_param1 annotation:dxChartAnnotationConfig|any
     * @type_function_param2 element:SVGGElement
     * @type_function_return string|SVGElement|jQuery
     */
@@ -3835,8 +3833,8 @@ var dxChartCommonAnnotationConfig = {
     height: undefined,
     /**
     * @name dxChartCommonAnnotationConfig.customizeTooltip
-    * @type function(annotationItem)
-    * @type_function_param1 annotationItem:dxChartAnnotationConfig|any
+    * @type function(annotation)
+    * @type_function_param1 annotation:dxChartAnnotationConfig|any
     * @type_function_return object
     * @default undefined
     * @notUsedInTheme
@@ -3844,8 +3842,8 @@ var dxChartCommonAnnotationConfig = {
     customizeTooltip: undefined,
     /**
     * @name dxChartCommonAnnotationConfig.tooltipTemplate
-    * @type template|function(annotationItem, element)
-    * @type_function_param1 annotationItem:dxChartAnnotationConfig|any
+    * @type template|function(annotation, element)
+    * @type_function_param1 annotation:dxChartAnnotationConfig|any
     * @type_function_param2 element:dxElement
     * @type_function_return string|Node|jQuery
     * @default undefined
@@ -3868,7 +3866,12 @@ var dxChartCommonAnnotationConfig = {
     * @type boolean
     * @default false
     */
-    allowDragging: false
+    allowDragging: false,
+    /**
+    * @name dxChartCommonAnnotationConfig.data
+    * @type object
+    */
+    data: undefined
 };
 /**
 * @name dxChartAnnotationConfig

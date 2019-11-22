@@ -68,7 +68,7 @@ function adaptiveCellTemplate(container, options) {
 
 var AdaptiveColumnsController = modules.ViewController.inherit({
     _isRowEditMode: function() {
-        var editMode = this._editingController.getEditMode();
+        var editMode = this._getEditMode();
         return editMode === EDIT_MODE_ROW;
     },
 
@@ -89,12 +89,16 @@ var AdaptiveColumnsController = modules.ViewController.inherit({
             container,
             value = column.calculateCellValue(cellOptions.data),
             displayValue = gridCoreUtils.getDisplayValue(column, value, cellOptions.data, cellOptions.rowType),
-            text = gridCoreUtils.formatValue(displayValue, column);
+            text = gridCoreUtils.formatValue(displayValue, column),
+            isCellOrBatchEditMode = this._editingController.isCellOrBatchEditMode();
 
         if(column.allowEditing && that.getController("keyboardNavigation").isKeyboardEnabled()) {
             $container.attr("tabIndex", that.option("tabIndex"));
-            eventsEngine.off($container, "focus", focusAction);
-            eventsEngine.on($container, "focus", focusAction);
+
+            if(isCellOrBatchEditMode) {
+                eventsEngine.off($container, "focus", focusAction);
+                eventsEngine.on($container, "focus", focusAction);
+            }
         }
 
         if(column.cellTemplate) {
@@ -276,7 +280,7 @@ var AdaptiveColumnsController = modules.ViewController.inherit({
             colWidth;
 
         if(widthOption && widthOption !== "auto" && !this._isPercentWidth(widthOption)) {
-            return widthOption;
+            return parseFloat(widthOption);
         }
 
         colWidth = this._calculateColumnWidth(column, containerWidth, contentColumns, columnsCanFit);
@@ -415,8 +419,12 @@ var AdaptiveColumnsController = modules.ViewController.inherit({
         }
     },
 
+    _getEditMode: function() {
+        return this._editingController.getEditMode();
+    },
+
     isFormEditMode: function() {
-        var editMode = this._editingController.getEditMode();
+        var editMode = this._getEditMode();
 
         return editMode === EDIT_MODE_FORM || editMode === EDIT_MODE_POPUP;
     },
@@ -1025,14 +1033,15 @@ module.exports = {
                 }
             },
             data: {
-                _processItems: function(items, changeType) {
+                _processItems: function(items, change) {
                     var that = this,
                         item,
-                        expandRowIndex;
+                        expandRowIndex,
+                        changeType = change.changeType;
 
                     items = that.callBase.apply(that, arguments);
 
-                    if((changeType === "loadingAll") || (!typeUtils.isDefined(that._adaptiveExpandedKey))) {
+                    if((changeType === "loadingAll") || !typeUtils.isDefined(that._adaptiveExpandedKey)) {
                         return items;
                     }
 
@@ -1096,9 +1105,11 @@ module.exports = {
                         newExpandRowIndex++;
                     }
 
+                    var rowIndexDelta = that.getRowIndexDelta();
+
                     that.updateItems({
                         changeType: "update",
-                        rowIndices: [oldExpandRowIndex, newExpandRowIndex]
+                        rowIndices: [oldExpandRowIndex - rowIndexDelta, newExpandRowIndex - rowIndexDelta]
                     });
                 },
 
@@ -1129,7 +1140,9 @@ module.exports = {
                 _processNextCellInMasterDetail: function($nextCell) {
                     this.callBase($nextCell);
 
-                    if(!this._isInsideEditForm($nextCell) && $nextCell) {
+                    var isCellOrBatchMode = this._editingController.isCellOrBatchEditMode();
+
+                    if(!this._isInsideEditForm($nextCell) && $nextCell && isCellOrBatchMode) {
                         var focusHandler = function() {
                             eventsEngine.off($nextCell, "focus", focusHandler);
                             eventsEngine.trigger($nextCell, "dxclick");
@@ -1140,11 +1153,11 @@ module.exports = {
 
                 _handleTabKeyOnMasterDetailCell: function(eventTarget, direction) {
                     var result = this.callBase(eventTarget, direction),
-                        $currentCell = this._getFocusedCell();
+                        $currentCell = this._getFocusedCell(),
+                        $row = $currentCell && $currentCell.parent();
 
-                    if(!result && $currentCell) {
-                        var $row = $currentCell.parent(),
-                            $dataCells = getDataCellElements($row),
+                    if(!result && $row && $row.length) {
+                        var $dataCells = getDataCellElements($row),
                             $targetCell = direction === "next" ? $dataCells.last() : $dataCells.first(),
                             rowIndex = $row.get(0).rowIndex,
                             adaptiveController = this._adaptiveController,
