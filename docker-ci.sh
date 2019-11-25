@@ -74,22 +74,39 @@ function run_test {
             google-chrome-stable --version
 
             local chromeArgs="--user-agent="\""$ios9_UA"\"" \
+                --disable-popup-blocking
+                --remote-debugging-address=0.0.0.0 \
+                --remote-debugging-port=9222 \
+                --enable-impl-side-painting \
+                --enable-skia-benchmarking \
+                --disable-web-security \
+                --no-default-browser-check \
+                --disable-extensions \
+                --enable-viewport \
+                --touch-events \
                 --no-sandbox \
+                --enable-overlay-scrollbar \
+                --enable-features=OverlayScrollbar \
                 --disable-dev-shm-usage \
                 --disable-gpu \
-                --user-data-dir=/tmp/chrome \
                 --no-first-run \
-                --headless=true \
-                --no-default-browser-check \
-                --disable-translate"
+                --disable-translate \
+                --user-data-dir=/tmp/chrome \
+                --headless=true"
+
+                # --no-sandbox \
+                # --disable-dev-shm-usage \
+                # --disable-gpu \
+                # --user-data-dir=/tmp/chrome \
+                # --no-first-run \
+                # --headless=true \
+                # --no-default-browser-check \
+                # --disable-translate"
 
             echo $chromeArgs
 
             if [ "$UA" == "ios9" ]; then
-                dbus-launch \
-                    --exit-with-session google-chrome-stable \
-                    $chromeArgs \
-                    $url &
+                google-chrome-stable $chromeArgs $url &>headless-chrome.log &
             elif [ "$HEADLESS" == "true" ]; then
                 google-chrome-stable $chromeArgs $url &>headless-chrome.log &
             else
