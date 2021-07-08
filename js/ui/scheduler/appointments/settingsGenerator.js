@@ -12,9 +12,7 @@ export class AppointmentSettingsGenerator {
     constructor(options) {
         this.options = options;
 
-        this.settingsStrategy = this.isVirtualScrolling
-            ? new AppointmentSettingsGeneratorVirtualStrategy(this.options)
-            : new AppointmentSettingsGeneratorBaseStrategy(this.options);
+        this.settingsStrategy = new AppointmentSettingsGeneratorVirtualStrategy(this.options);
     }
 
     get isVirtualScrolling() { return this.options.isVirtualScrolling; }
